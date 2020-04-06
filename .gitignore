@@ -2,3 +2,4 @@
 *~
 *.pyc
 events_LHCO2020_*.h5
+.DS_Store

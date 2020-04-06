@@ -1,1 +1,11 @@
 .dockerignore
+.gitignore
+.gitlab-ci.yml
+*.md
+*.yml
+*.ipynb
+# ignore .git and .cache folders
+.git
+.cache
+.DS_Store
+.ipynb_checkpoints
