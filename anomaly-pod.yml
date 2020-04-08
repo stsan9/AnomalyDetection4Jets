@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: gpu-pod-anomaly
+  name: gpu-pod-example
 spec:
   containers:
   - name: gpu-container
@@ -10,3 +10,23 @@ spec:
     resources:
       limits:
         nvidia.com/gpu: 1
+        memory: 8Gi	
+        cpu: 6
+        ephemeral-storage: 100Gi
+    volumeMounts:
+    - mountPath: /anomalyvol
+      name: anomalyvol
+  restartPolicy: Never
+  volumes:
+    - name: anomalyvol
+      persistentVolumeClaim:
+        claimName: anomalyvol
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: topology.kubernetes.io/zone
+            operator: In
+            values:
+            - us-west
