@@ -12,7 +12,7 @@ kubectl port-forward gpu-pod-example 8888:8888
 
 log on to pod
 ```
-kubectl exec -it gpu-pod-example  bash
+kubectl exec -it gpu-pod-example --bash
 ```
 
 once logged on, check out code and launch jupyter
