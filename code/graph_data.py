@@ -8,9 +8,10 @@ import pandas as pd
 from pyjet import cluster,DTYPE_PTEPM
 
 class GraphDataset(Dataset):
-    def __init__(self, root, transform=None, pre_transform=None, connect_all=True):
-        self._connect_all = connect_all
-        super(GraphDataset, self).__init__(root, transform, pre_transform)
+    def __init__(self, root, transform=None, pre_transform=None, start=0, stop=-1):
+        self.start = start
+        self.stop = stop
+        super(GraphDataset, self).__init__(root, transform, pre_transform) 
 
 
     @property
@@ -19,7 +20,9 @@ class GraphDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        njets = 2388
+        njets = 24043
+        if self.start!=0 and self.stop!=-1:
+            njets = self.stop-self.start
         return ['data_{}.pt'.format(i) for i in range(njets)]
 
     def __len__(self):
@@ -33,7 +36,7 @@ class GraphDataset(Dataset):
     def process(self):
         data = []
         for raw_path in self.raw_paths:
-            df = pd.read_hdf(raw_path,stop=1000) # just read first 10000 events
+            df = pd.read_hdf(raw_path,stop=10000) # just read first 10000 events
             all_events = df.values
             rows = all_events.shape[0]
             cols = all_events.shape[1]
@@ -48,10 +51,10 @@ class GraphDataset(Dataset):
                 # cluster jets from the particles in one observation
                 sequence = cluster(pseudojets_input, R=1.0, p=-1)
                 jets = sequence.inclusive_jets()
-                for k in range(len(jets)): # for each jet get (px, py, pz, e)
-                    if jets[k].pt < 200: continue
-                    particles = np.zeros((len(jets[k]),4))
-                    for p, part in enumerate(jets[k]):
+                for jet in jets: # for each jet get (px, py, pz, e)
+                    if jet.pt < 200: continue
+                    particles = np.zeros((len(jet),4))
+                    for p, part in enumerate(jet):
                         particles[p,:] = np.array([part.px,
                                                    part.py,
                                                    part.pz,
