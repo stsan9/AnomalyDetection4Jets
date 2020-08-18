@@ -66,8 +66,8 @@ class GraphDataset(Dataset):
     def process(self):
         
         # only do 10000 events for background, process full blackboxes
-        total_size = n_events
-        chunk_size = n_events // 10
+        total_size = self.n_events
+        chunk_size = self.n_events // 10
 
         for raw_path in self.raw_paths:
             event_idx = 0
