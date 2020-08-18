@@ -19,7 +19,8 @@ class GraphDataset(Dataset):
     full: whether or not to read/process in the full file
     n_events: how many events to process
     """
-    def __init__(self, root, transform=None, pre_transform=None, start=0, stop=-1, n_particles=-1, bb=0, full=False, n_events=10000):
+    def __init__(self, root, transform=None, pre_transform=None, start=0, stop=-1, 
+                 n_particles=-1, bb=0, full=False, n_events=10000):
         self.start = start
         self.stop = stop
         self.n_particles = n_particles
@@ -106,15 +107,20 @@ class GraphDataset(Dataset):
                             n_particles = self.n_particles
                         else:
                             n_particles = len(jet)
-                        particles = np.zeros((n_particles, 4))
+                        particles = np.zeros((n_particles, 8))
 
                         # store all the particles of this jet
                         for p, part in enumerate(jet):
                             if n_particles > -1 and p >= n_particles: break
+                            # save two representations: px, py, pz, e, and pt, eta, phi, mass
                             particles[p,:] = np.array([part.px,
                                                        part.py,
                                                        part.pz,
-                                                       part.e])
+                                                       part.e,
+                                                       part.pt,
+                                                       part.eta,
+                                                       part.phi,
+                                                       part.mass])
                         data.append(particles)
                         nonzero_particles.append(len(jet))
                         event_indices.append(event_idx)
@@ -123,18 +129,30 @@ class GraphDataset(Dataset):
                         py.append(jet.py)
                         pz.append(jet.pz)
                         e.append(jet.e)
-                
                     event_idx += 1
 
                 file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt']
                 for data_idx, d in enumerate(data):
-                    n_particles = nonzero_particles[ijet]
-                    pairs = [[i, j] for (i, j) in itertools.product(range(n_particles),range(n_particles)) if i!=j]
+                    n_particles = nonzero_particles[data_idx]
+                    pairs = np.stack([[i, j] for (i, j) in itertools.product(range(n_particles),range(n_particles)) if i!=j])
+                    # save [deta, dphi] as edge attributes (may not be used depending on model)
+                    eta0s = d[pairs[:,0],6]
+                    eta1s = d[pairs[:,1],6]
+                    phi0s = d[pairs[:,0],7]
+                    phi1s = d[pairs[:,1],7]
+                    detas = np.abs(eta0s - eta1s)
+                    dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
+                    edge_attr = np.stack([detas,dphis],axis=1)
+                    edge_attr = torch.tensor(edge_attr, dtype=torch.float)
                     edge_index = torch.tensor(pairs, dtype=torch.long)
                     edge_index=edge_index.t().contiguous()
-                    x = torch.tensor(d, dtype=torch.float)
-                    y = torch.tensor(d, dtype=torch.float)
-                    data = Data(x=x, edge_index=edge_index, y=y)
+                    # save [px, py, pz, e] as node attributes and target
+                    x = torch.tensor(d[:,:4], dtype=torch.float)
+                    y = torch.tensor(d[:,:4], dtype=torch.float)
+                    # save [n_particles, mass, px, py, pz, e] of the jet as global attributes (may not be used depending on model)
+                    u = torch.tensor([n_particles, masses[data_idx], px[data_idx], py[data_idx], pz[data_idx], e[data_idx]], dtype=torch.float)
+                    data = Data(x=x, edge_index=edge_index, y=y, edge_attr=edge_attr)
+                    data.u = u
                     if self.pre_filter is not None and not self.pre_filter(data):
                         continue
                     if self.pre_transform is not None:
