@@ -75,7 +75,7 @@ class GraphDataset(Dataset):
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
             for jet in jets: # for each jet get (px, py, pz, e)
-                if jet.pt < 200: continue
+                if jet.pt < 200 and len(jet)<=1: continue
                 if self.n_particles > -1:
                     n_particles = self.n_particles
                 else:
@@ -94,7 +94,10 @@ class GraphDataset(Dataset):
                                                part.eta,
                                                part.phi,
                                                part.mass])
-                n_particles = len(jet)
+                if self.n_particles>-1:
+                    n_particles = min(len(jet),self.n_particles)
+                else:
+                    n_particles = len(jet)
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
                 # save [deta, dphi] as edge attributes (may not be used depending on model)
                 eta0s = particles[pairs[:,0],6]
