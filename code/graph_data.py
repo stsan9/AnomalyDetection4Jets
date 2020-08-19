@@ -98,6 +98,7 @@ class GraphDataset(Dataset):
                     n_particles = min(len(jet),self.n_particles)
                 else:
                     n_particles = len(jet)
+                print(event_idx, ijet, n_particles, jet.pt, len(jet), self.n_particles, particles.shape[0])
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
                 # save [deta, dphi] as edge attributes (may not be used depending on model)
                 eta0s = particles[pairs[:,0],6]
