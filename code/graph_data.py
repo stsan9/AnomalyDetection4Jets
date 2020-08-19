@@ -17,23 +17,17 @@ class GraphDataset(Dataset):
     """
     @Params
     root: path
-    start: what jet # to start reading at
-    stop: jet # to stop at (default to all)
-    n_particles: particles + padding for jet (default no padding)
+    n_particles: particles + padding for jet (default -1=no padding)
     bb: dataset to read in (0=background)
-    full: whether or not to read/process in the full file
-    n_events: how many events to process
+    n_events: how many events to process (-1=all)
     """
-    def __init__(self, root, transform=None, pre_transform=None, start=0, stop=-1,
-                 n_particles=-1, bb=0, full=False, n_events=10000, n_jobs=4):
-        self.start = start
-        self.stop = stop
+    def __init__(self, root, transform=None, pre_transform=None,
+                 n_particles=-1, bb=0, n_events=-1, n_proc=4):
         self.n_particles = n_particles
         self.bb = bb
-        self.full = full
-        self.n_events = 1000000 if full else n_events
-        self.n_jobs = n_jobs
-        self.chunk_size = self.n_events // self.n_jobs
+        self.n_events = 1000000 if n_events==-1 else n_events
+        self.n_proc = n_proc
+        self.chunk_size = self.n_events // self.n_proc
         self.file_string = ['data_{}_{}.pt', 'data_bb1_{}_{}.pt', 'data_bb2_{}_{}.pt', 'data_bb3_{}_{}.pt']
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
@@ -140,10 +134,23 @@ class GraphDataset(Dataset):
                 #self.process_one_chunk(raw_path, k)
                 # to do it with multiprocessing
                 pars += [(self, raw_path, k)]
-            pool = multiprocessing.Pool(self.n_jobs)
+            pool = multiprocessing.Pool(self.n_proc)
             pool.map(process_func, pars)
 
     def get(self, idx):
         p = osp.join(self.processed_dir, processed_file_names[idx])
         data = torch.load(p)
         return data
+       
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, help="dataset path", required=True)
+    parser.add_argument("--n-proc", type=int, default=4, help="number of concurrent processes")
+    parser.add_argument("--n-events", type=int, default=-1, help="number of events (-1 means all)")
+    parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
+    parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background)")
+    args = parser.parse_args()
+        
+    gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
+                         n_events=args.n_events, n_particles=args.n_particles)
