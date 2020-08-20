@@ -75,7 +75,7 @@ class GraphDataset(Dataset):
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
             for jet in jets: # for each jet get (px, py, pz, e)
-                if jet.pt < 200 and len(jet)<=1: continue
+                if jet.pt < 200 or len(jet)<=1: continue
                 if self.n_particles > -1:
                     n_particles = self.n_particles
                 else:
