@@ -142,7 +142,7 @@ class GraphDataset(Dataset):
             pool.map(process_func, pars)
 
     def get(self, idx):
-        p = osp.join(self.processed_dir, processed_file_names[idx])
+        p = osp.join(self.processed_dir, self.processed_file_names[idx])
         data = torch.load(p)
         return data
        
