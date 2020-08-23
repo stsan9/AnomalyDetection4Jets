@@ -3,7 +3,7 @@ Generate Plots for Bump Hunting
 """
 import matplotlib as plt
 import torch
-import torch.multiprocessing as multiprocessing
+import torch.multiprocessing as mp
 from EdgeNet import EdgeNet
 from graph_data import GraphDataset
 
@@ -18,11 +18,12 @@ def invariant_mass(jet1, jet2):
 """
 @params
 idx - start idx for indexing into dataset
+chunk_size - how much of dataset to process
 dataset - graph data
 """
-def calc_jet_data(idx, dataset):
+def calc_jet_data(idx, chunk_size, dataset):
     # output tensor colms: e, px, py, pz, loss
-    out = torch.zeros(idx, 5)
+    out = torch.zeros(chunk_size, 5)
 
     # create model and set to evaluation mode
     input_dim = 4
@@ -34,7 +35,7 @@ def calc_jet_data(idx, dataset):
     model.eval()
     
     # COME BACK AND EDIT
-    for i in range(idx, end_idx):
+    for i in range(idx, idx + chunk_size):
         e.put(data[6])
         px.put(data[3])
         py.put(data[4])
@@ -48,8 +49,27 @@ def calc_jet_data(idx, dataset):
         except:
             losses.put(0) # model can't evaluate tiny jet
 
+def split_processes(dataset, n_proc):
+    chunk_size = len(dataset) // n_proc
+    processes = []
+    for n in n_proc:
+        p = mp.Process(target=calc_jet_data, args=(n*chunk_size, chunk_size, dataset))
+        processes.append(p)
+    for p in processes:
+        p.join()
+    
+            
 def bump_hunt(model_fname, n_proc):
-    bb1 = GraphDataset('
+    # specify dataset
+    # identify indices for each process
+    # loop generating processes and pass in args
+    # come back from processes
+    # find outliers and dijet im
+    # plot and save
+    bb1 = GraphDataset('/anomalyvol/data/gnn_geom/bb1/', bb=1)
+    
+    bb2 = GraphDataset('/anomalyvol/data/gnn_geom/bb2/', bb=2)
+    bb3 = GraphDataset('/anomalyvol/data/gnn_geom/bb3/', bb=3)
 
     
 if __name__ == "__main__":
