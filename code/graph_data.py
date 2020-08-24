@@ -20,12 +20,15 @@ class GraphDataset(Dataset):
     n_particles: particles + padding for jet (default -1=no padding)
     bb: dataset to read in (0=background)
     n_events: how many events to process (-1=all)
+    n_events_merge: how many events to merge
     """
     def __init__(self, root, transform=None, pre_transform=None,
-                 n_particles=-1, bb=0, n_events=-1, n_proc=4):
+                 n_particles=-1, bb=0, n_events=-1, n_proc=1,
+                 n_events_merge=10):
         self.n_particles = n_particles
         self.bb = bb
         self.n_events = 1000000 if n_events==-1 else n_events
+        self.n_events_merge = n_events_merge
         self.n_proc = n_proc
         self.chunk_size = self.n_events // self.n_proc
         self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt']
@@ -57,9 +60,10 @@ class GraphDataset(Dataset):
         all_events = df.values
         rows = all_events.shape[0]
         cols = all_events.shape[1]
-
+        datas = []
         for i in range(rows):
-            datas = []
+            if i%self.n_events_merge == 0:
+                datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
             if event_idx % 100 == 0:
@@ -126,11 +130,12 @@ class GraphDataset(Dataset):
                     data = self.pre_transform(data)
                 datas.append([data])
                 ijet += 1
-            datas = sum(datas,[])
-            print(datas)
-            # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
-            torch.save(datas,
-                       osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
+
+            if i%self.n_events_merge == self.n_events_merge-1:
+                datas = sum(datas,[])
+                #print(datas)
+                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
+                torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         # only do 10000 events for background, process full blackboxes
@@ -148,16 +153,18 @@ class GraphDataset(Dataset):
         p = osp.join(self.processed_dir, processed_file_names[idx])
         data = torch.load(p)
         return data
-       
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, help="dataset path", required=True)
-    parser.add_argument("--n-proc", type=int, default=4, help="number of concurrent processes")
+    parser.add_argument("--n-proc", type=int, default=1, help="number of concurrent processes")
     parser.add_argument("--n-events", type=int, default=-1, help="number of events (-1 means all)")
     parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
     parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background)")
+    parser.add_argument("--n-events-merge", type=int, default=10, help="number of events to merge")
     args = parser.parse_args()
-        
+
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
-                         n_events=args.n_events, n_particles=args.n_particles)
+                         n_events=args.n_events, n_particles=args.n_particles,
+                         n_events_merge=args.n_events_merge)
