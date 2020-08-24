@@ -162,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument("--n-events", type=int, default=-1, help="number of events (-1 means all)")
     parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
     parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background)")
-    parser.add_argument("--n-events-merge", type=int, default=10, help="number of events to merge")
+    parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
     args = parser.parse_args()
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
