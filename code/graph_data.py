@@ -24,7 +24,7 @@ class GraphDataset(Dataset):
     """
     def __init__(self, root, transform=None, pre_transform=None,
                  n_particles=-1, bb=0, n_events=-1, n_proc=1,
-                 n_events_merge=10):
+                 n_events_merge=100):
         self.n_particles = n_particles
         self.bb = bb
         self.n_events = 1000000 if n_events==-1 else n_events
