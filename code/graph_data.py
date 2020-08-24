@@ -106,23 +106,23 @@ class GraphDataset(Dataset):
                 #print(event_idx, ijet, n_particles, jet.pt, len(jet), self.n_particles, particles.shape[0])
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
                 # save [deta, dphi] as edge attributes (may not be used depending on model)
-                eta0s = particles[pairs[:,0],6]
-                eta1s = particles[pairs[:,1],6]
-                phi0s = particles[pairs[:,0],7]
-                phi1s = particles[pairs[:,1],7]
-                detas = np.abs(eta0s - eta1s)
-                dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
-                edge_attr = np.stack([detas,dphis],axis=1)
-                edge_attr = torch.tensor(edge_attr, dtype=torch.float)
+                #eta0s = particles[pairs[:,0],6]
+                #eta1s = particles[pairs[:,1],6]
+                #phi0s = particles[pairs[:,0],7]
+                #phi1s = particles[pairs[:,1],7]
+                #detas = np.abs(eta0s - eta1s)
+                #dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
+                #edge_attr = np.stack([detas,dphis],axis=1)
+                #edge_attr = torch.tensor(edge_attr, dtype=torch.float)
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
                 # save [px, py, pz, e] of particles as node attributes and target
                 x = torch.tensor(particles[:,:4], dtype=torch.float)
-                y = torch.tensor(particles[:,:4], dtype=torch.float)
+                #y = x
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
                 u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
-                data = Data(x=x, edge_index=edge_index, y=y, edge_attr=edge_attr)
+                data = Data(x=x, edge_index=edge_index)#), y=y, edge_attr=edge_attr)
                 data.u = torch.unsqueeze(u, 0)
                 if self.pre_filter is not None and not self.pre_filter(data):
                     continue
