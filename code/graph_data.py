@@ -13,6 +13,21 @@ def process_func(args):
     self, raw_path, k = args
     return self.process_one_chunk(raw_path, k)
 
+### helper functions from original dataset class ###
+def to_list(x):
+    if not isinstance(x, (tuple, list)) or isinstance(x, str):
+        x = [x]
+    return x
+
+# augmented to be less robust but faster than original
+def files_exist(files):
+    return len(files) != 0
+
+def __repr__(obj):
+    if obj is None:
+        return 'None'
+    return re.sub('(<.*?)\\s.*(>)', r'\1\2', obj.__repr__())
+
 class GraphDataset(Dataset):
     """
     @Params
@@ -45,8 +60,9 @@ class GraphDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        proc_list = glob.iglob(self.processed_dir+'/data*.pt')
-        return sorted([l.replace(self.processed_dir, '.') for l in proc_list])
+        proc_list = glob.glob(osp.join(self.processed_dir, 'data*.pt'))
+        return_list = list(map(osp.basename, proc_list))
+        return return_list
 
     def __len__(self):
         return len(self.processed_file_names)
@@ -138,6 +154,7 @@ class GraphDataset(Dataset):
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
+        print(len(self.processed_file_names))
         # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
             pars = []
@@ -150,9 +167,40 @@ class GraphDataset(Dataset):
             pool.map(process_func, pars)
 
     def get(self, idx):
-        p = osp.join(self.processed_dir, processed_file_names[idx])
+        p = osp.join(self.processed_dir, self.processed_file_names[idx])
         data = torch.load(p)
         return data
+    
+    def _process(self):
+        f = osp.join(self.processed_dir, 'pre_transform.pt')
+        if osp.exists(f) and torch.load(f) != __repr__(self.pre_transform):
+            logging.warning(
+                'The `pre_transform` argument differs from the one used in '
+                'the pre-processed version of this dataset. If you really '
+                'want to make use of another pre-processing technique, make '
+                'sure to delete `{}` first.'.format(self.processed_dir))
+        f = osp.join(self.processed_dir, 'pre_filter.pt')
+        if osp.exists(f) and torch.load(f) != __repr__(self.pre_filter):
+            logging.warning(
+                'The `pre_filter` argument differs from the one used in the '
+                'pre-processed version of this dataset. If you really want to '
+                'make use of another pre-fitering technique, make sure to '
+                'delete `{}` first.'.format(self.processed_dir))
+
+        if files_exist(self.processed_paths):  # pragma: no cover
+            return
+
+        print('Processing...')
+
+        makedirs(self.processed_dir)
+        self.process()
+
+        path = osp.join(self.processed_dir, 'pre_transform.pt')
+        torch.save(__repr__(self.pre_transform), path)
+        path = osp.join(self.processed_dir, 'pre_filter.pt')
+        torch.save(__repr__(self.pre_filter), path)
+
+        print('Done!')
 
 if __name__ == "__main__":
     import argparse
