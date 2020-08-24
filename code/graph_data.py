@@ -28,7 +28,7 @@ class GraphDataset(Dataset):
         self.n_events = 1000000 if n_events==-1 else n_events
         self.n_proc = n_proc
         self.chunk_size = self.n_events // self.n_proc
-        self.file_string = ['data_{}_{}.pt', 'data_bb1_{}_{}.pt', 'data_bb2_{}_{}.pt', 'data_bb3_{}_{}.pt']
+        self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt']
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
 
@@ -42,7 +42,7 @@ class GraphDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        proc_list = glob.glob(osp.join(self.processed_dir, 'data*.pt'))
+        proc_list = glob.iglob(self.processed_dir+'/data*.pt')
         return sorted([l.replace(self.processed_dir, '.') for l in proc_list])
 
     def __len__(self):
@@ -59,6 +59,7 @@ class GraphDataset(Dataset):
         cols = all_events.shape[1]
 
         for i in range(rows):
+            datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
             if event_idx % 100 == 0:
@@ -116,18 +117,20 @@ class GraphDataset(Dataset):
                 y = torch.tensor(particles[:,:4], dtype=torch.float)
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
-                u = torch.tensor([n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
+                u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
                 data = Data(x=x, edge_index=edge_index, y=y, edge_attr=edge_attr)
-                data.u = u
+                data.u = torch.unsqueeze(u, 0)
                 if self.pre_filter is not None and not self.pre_filter(data):
                     continue
                 if self.pre_transform is not None:
                     data = self.pre_transform(data)
-
-                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
-                torch.save((data, event_idx, jet.mass, jet.px, jet.py, jet.pz, jet.e),
-                           osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx, ijet)))
+                datas.append([data])
                 ijet += 1
+            datas = sum(datas,[])
+            print(datas)
+            # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
+            torch.save(datas,
+                       osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         # only do 10000 events for background, process full blackboxes
