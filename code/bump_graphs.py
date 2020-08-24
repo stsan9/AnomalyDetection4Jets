@@ -59,6 +59,8 @@ def split_processes(dataset, n_proc):
     model.load_state_dict(torch.load(modpath))
     model.eval()
     model.share_memory()
+    
+    dataset.share_memory()
 
     # generate processes
     for n in range(n_proc):
@@ -70,9 +72,10 @@ def split_processes(dataset, n_proc):
         processes.append(p)
     # end processes
     for p in processes:
+        print("Ending process")
         p.join()
     
-    print(out)
+    print(out[-5])
     
             
 def bump_hunt(n_proc):
@@ -83,7 +86,7 @@ def bump_hunt(n_proc):
     # find outliers and dijet im
     # plot and save
     print("loading in bb1...")
-    bb1 = GraphDataset('/anomalyvol/data/gnn_geom/', bb=1)
+    bb1 = GraphDataset('/anomalyvol/data/gnn_geom/bb1', bb=1)
     print("done loading")
     split_processes(bb1, n_proc)
     
