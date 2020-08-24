@@ -42,8 +42,10 @@ class GraphDataset(Dataset):
 
     @property
     def processed_file_names(self):
-        proc_list = glob.glob(osp.join(self.processed_dir, 'data*.pt'))
-        return sorted([l.replace(self.processed_dir, '.') for l in proc_list])
+        print("Here")
+        proc_list = glob.glob(osp.join('/', self.processed_dir, 'data*.pt'))
+        files = list(map(osp.basename, proc_list))
+        return files
 
     def __len__(self):
         return len(self.processed_file_names)
@@ -130,6 +132,7 @@ class GraphDataset(Dataset):
                 ijet += 1
 
     def process(self):
+        print(len(self.processed_file_names))
         # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
             pars = []
