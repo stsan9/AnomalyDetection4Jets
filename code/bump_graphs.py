@@ -30,6 +30,7 @@ def calc_jet_data(idx, chunk_size, dataset, out, model):
 
     with torch.no_grad():
         for i in range(idx, idx + chunk_size):
+            print(dataset[i])
             out[i][0] = dataset[i][6] # e
             out[i][1] = dataset[i][3] # px
             out[i][2] = dataset[i][4] # py
@@ -59,8 +60,6 @@ def split_processes(dataset, n_proc):
     model.load_state_dict(torch.load(modpath))
     model.eval()
     model.share_memory()
-    
-    dataset.share_memory()
 
     # generate processes
     for n in range(n_proc):
@@ -86,7 +85,7 @@ def bump_hunt(n_proc):
     # find outliers and dijet im
     # plot and save
     print("loading in bb1...")
-    bb1 = GraphDataset('/anomalyvol/data/gnn_geom/bb1', bb=1)
+    bb1 = GraphDataset('/anomalyvol/data/gnn_geom/', bb=1)
     print("done loading")
     split_processes(bb1, n_proc)
     
