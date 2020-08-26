@@ -3,7 +3,7 @@ import tqdm
 import math
 import torch.nn as nn
 from torch_geometric.nn import EdgeConv, global_mean_pool
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 from torch.utils.data import random_split
 import os.path as osp
 from graph_data import GraphDataset
@@ -48,9 +48,10 @@ def test(model,loader,total,batch_size):
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     for i,data in t:
-        data = data[0].to(device)
+        data = data.to(device)
+        y = data.x # the model will overwrite data.x, so save a copy
         batch_output = model(data)
-        batch_loss_item = mse(batch_output, data.y).item()
+        batch_loss_item = mse(batch_output, y).item()
         sum_loss += batch_loss_item
         t.set_description("loss = %.5f" % (batch_loss_item))
         t.refresh() # to show immediately the update
@@ -65,10 +66,11 @@ def train(model, optimizer, loader, total, batch_size):
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     for i,data in t:
-        data = data[0].to(device)
+        data = data.to(device)
+        y = data.x # the model will overwrite data.x, so save a copy
         optimizer.zero_grad()
         batch_output = model(data)
-        batch_loss = mse(batch_output, data.y)
+        batch_loss = mse(batch_output, y)
         batch_loss.backward()
         batch_loss_item = batch_loss.item()
         t.set_description("loss = %.5f" % batch_loss_item)
@@ -79,26 +81,36 @@ def train(model, optimizer, loader, total, batch_size):
     return sum_loss/(i+1)
 
 # data and specifications
-gdata = GraphDataset(root='/anomalyvol/data/gnn_geom')
+gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0)
 input_dim = 4
 big_dim = 32
 hidden_dim = 2
 fulllen = len(gdata)
 tv_frac = 0.10
 tv_num = math.ceil(fulllen*tv_frac)
-batch_size = 512
-n_epochs = 800
+batch_size = 8
+n_epochs = 100
 lr = 0.001
 patience = 10
 device = 'cuda:0'
-model_fname = 'EdgeNetSplitFix'
+model_fname = 'GNN_AE_EdgeConv'
+
+model = EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+
+def collate(items): # collate function for data loaders (transforms list of lists to list)
+    l = sum(items, [])
+    return Batch.from_data_list(l)
 
 # train, valid, test split
 torch.manual_seed(0) # lock seed for random_split
 train_dataset, valid_dataset, test_dataset = random_split(gdata, [fulllen-2*tv_num,tv_num,tv_num])
-train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
-valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+train_loader = DataListLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
+train_loader.collate_fn = collate
+valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+valid_loader.collate_fn = collate
+test_loader = DataListLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+test_loader.collate_fn = collate
 
 train_samples = len(train_dataset)
 valid_samples = len(valid_dataset)
