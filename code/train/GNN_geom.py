@@ -120,7 +120,7 @@ test_samples = len(test_dataset)
 model = EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 # load in model
-modpath = osp.join('/anomalyvol/models/gnn/',model_fname+'.best.pth')
+modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
 try:
     model.load_state_dict(torch.load(modpath))
 except:
@@ -137,7 +137,7 @@ for epoch in range(0, n_epochs):
 
     if valid_loss < best_valid_loss:
         best_valid_loss = valid_loss
-        modpath = osp.join('/anomalyvol/models/gnn/',model_fname+'.best.pth')
+        modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
         print('New best model saved to:',modpath)
         torch.save(model.state_dict(),modpath)
         stale_epochs = 0
