@@ -62,7 +62,7 @@ def in_out_diff_concat(diff, output, inputs):
     inputs = np.concatenate(inputs)
     return [diff, output, inputs]
 
-def make_hists(diff, output, inputs, bin1, feat):
+def make_hists(diff, output, inputs, bin1, feat, model_name):
     plt.figure(figsize=(1,1))
     plt.hist(inputs, bins=bin1,alpha=0.5)
     plt.hist(output, bins=bin1,alpha=0.5)
@@ -70,7 +70,7 @@ def make_hists(diff, output, inputs, bin1, feat):
 
     plt.figure()
     plt.hist(diff, bins=np.linspace(-5, 5, 101))
-    plt.save('figures/' + feat + '.pdf')
+    plt.save('figures/' + model_name + '_' + feat + '.pdf')
 
 def gen_plots(model_name):
     model = get_model(model_name)
@@ -78,7 +78,7 @@ def gen_plots(model_name):
 
     input_x = []
     output_x = []
-    t = enumerate(test_loader)
+    t = tqdm.tqdm(enumerate(test_loader), total=test_samples/batch_size)
     for i, data in t:
         data.to(device)
         input_x.append(data.x.cpu().numpy())
@@ -114,17 +114,17 @@ def gen_plots(model_name):
     # make plots
     feat = 'px'
     bins = np.linspace(-20, 20, 101)
-    make_hists(diff_px, output_px, input_px, bins, feat)
+    make_hists(diff_px, output_px, input_px, bins, feat, model_name)
 
     feat = 'py'
-    make_hists(diff_py, output_py, input_py, bins, feat)
+    make_hists(diff_py, output_py, input_py, bins, feat, model_name)
 
     feat = 'pz'
-    make_hists(diff_pz, output_pz, input_pz, bins, feat)
+    make_hists(diff_pz, output_pz, input_pz, bins, feat, model_name)
 
     feat = 'e'
     bins = np.linspace(-5, 35, 101)
-    make_hists(diff_e, output_e, input_e, bins, feat)
+    make_hists(diff_e, output_e, input_e, bins, feat, model_name)
 
 if __name__ == "__main__":
     import argparse
