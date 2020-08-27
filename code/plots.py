@@ -12,6 +12,7 @@ import sys
 from models import EdgeNet
 
 device = 'cuda:0'
+batch_size = 4
 
 def collate(items):
     l = sum(items, [])
@@ -31,16 +32,17 @@ def get_data():
     valid_loader.collate_fn = collate
     test_loader = DataListLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
     test_loader.collate_fn = collate
+    
+    train_samples = len(train_dataset)
+    valid_samples = len(valid_dataset)
+    test_samples = len(test_dataset)
 
-    return train_loader, valid_loader, test_loader
+    return train_loader, valid_loader, test_loader, train_samples, valid_samples, test_samples
 
-def get_model(modelname):
+def get_model(model_name):
     # specific for gnn_geom for now
-    input_dim = 4
-    big_dim = 32
-    hidden_dim = 2
-    model = EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
-    modpath = osp.join('/anomalyvol/models/gnn/',model_fname+'.best.pth')
+    model = EdgeNet().to(device)
+    modpath = osp.join('/anomalyvol/models/',model_name+'.best.pth')
     try:
         model.load_state_dict(torch.load(modpath))
     except:
@@ -72,14 +74,11 @@ def make_hists(diff, output, inputs, bin1, feat):
 
 def gen_plots(model_name):
     model = get_model(model_name)
-    train_loader, valid_loader, test_loader = get_data()
-    train_samples = len(train_dataset)
-    valid_samples = len(valid_dataset)
-    test_samples = len(test_dataset)
+    train_loader, valid_loader, test_loader, train_samples, valid_samples, test_samples = get_data()
 
     input_x = []
     output_x = []
-    t = tqdm.tqdm(enumerate(test_loader),total=test_samples/batch_size)
+    t = enumerate(test_loader)
     for i, data in t:
         data[0].to(device)
         input_x.append(data[0].x.cpu().numpy())
@@ -131,5 +130,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", type=str, help="name of model file", required=True)
+    args = parser.parse_args()
     
-    genplots(model_name)
+    gen_plots(args.model_name)
