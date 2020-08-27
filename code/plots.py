@@ -80,9 +80,9 @@ def gen_plots(model_name):
     output_x = []
     t = enumerate(test_loader)
     for i, data in t:
-        data[0].to(device)
-        input_x.append(data[0].x.cpu().numpy())
-        output_x.append(model(data[0]).cpu().detach().numpy())
+        data.to(device)
+        input_x.append(data.x.cpu().numpy())
+        output_x.append(model(data).cpu().detach().numpy())
 
     diff_px = []
     output_px = []
