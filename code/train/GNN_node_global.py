@@ -182,7 +182,7 @@ except:
     pass
 
 stale_epochs = 0
-best_valid_loss = 99999
+best_valid_loss = test(model, valid_loader, valid_samples, batch_size)
 for epoch in range(0, n_epochs):
     loss = train(model, optimizer, train_loader, train_samples, batch_size)
     valid_loss = test(model, valid_loader, valid_samples, batch_size)
