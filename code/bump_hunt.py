@@ -7,6 +7,7 @@ import torch.multiprocessing as mp
 import os.path as osp
 from models import EdgeNet
 from graph_data import GraphDataset
+from torch_geometric.data import Data, DataListLoader, Batch
 from torch.nn import MSELoss
 import numpy as np
 
@@ -43,7 +44,7 @@ def outlier_mass_distinction(data):
 def process(data_loader, data_len):
     # load model for loss calculation
     model = EdgeNet()
-    modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
+    modpath = osp.join('/anomalyvol/models/',model_fname,'.best.pth')
     model.load_state_dict(torch.load(modpath))
     model.eval()
     mse = MSELoss(reduction='mean')
