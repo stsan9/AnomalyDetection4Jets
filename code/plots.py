@@ -70,7 +70,6 @@ def make_hists(diff, output, inputs, bin1, feat, model_name):
     plt.xlabel(feat, fontsize=16)
     plt.ylabel('Particles', fontsize=16)
     plt.tight_layout()
-    plt.show()
     plt.savefig('figures/' + model_name + '_' + feat + '.pdf')
 
 def gen_plots(model_name):
