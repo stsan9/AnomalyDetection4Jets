@@ -36,7 +36,7 @@ def outlier_mass_distinction(data):
         mass = dijet[0]
         outlier_class = dijet[1]
         if outlier_class == 1:
-            outlier_mass = torch.cat((outlier_mass, dijet[0]))
+            outlier_mass = torch.cat((outlier_mass, mass))
     return outlier_mass
 
 # heavy lifting: find the invariant masses with outlier distinction
@@ -94,8 +94,8 @@ def make_graph(all_mass, outlier_mass, bb):
     weights = np.ones_like(all_mass) / len(all_mass)
     plt.hist(np.array(all_mass), alpha = 0.5, bins=bins, weights=weights, label='All events')
     plt.legend()
-    plt.xlabel('$m_{jj}$ [GeV]')
-    plt.ylabel('Normalized events [a. u.]')
+    plt.xlabel('$m_{jj}$ [GeV]', fontsize=16)
+    plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
     plt.savefig('/anomalyvol/figures/bump_' + bb + '.pdf')
 
