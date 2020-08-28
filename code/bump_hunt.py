@@ -40,7 +40,7 @@ def process(data_loader, data_len):
 
     # colms: e_1, px_1, py_1, pz_1, e2, px_2, py_2, pz_2, loss_1, loss_2
     # indices: 0, 1,  , 2   , 3   , 4 , 5   , 6   , 7   , 8     , 9
-    jet_data = torch.zeros((data_len, 2), dtype=torch.float32)
+    jet_data = torch.zeros((1000000, 2), dtype=torch.float32)
     event = -1
     with torch.no_grad():
         for k, data in enumerate(data_loader): # go through all 10k data lists
@@ -64,7 +64,7 @@ def process(data_loader, data_len):
                 jet_x_1 = jets_x[jets.batch==jets.batch[-1]]
                 jet_losses = torch.tensor([mse(jet_rec_0, jet_x_0),
                                            mse(jet_rec_1, jet_x_1)])
-                jet_data[i:i+2,:] = jet_losses
+                jet_data[event,:] = jet_losses
     return jet_data
 
 # Integrate all parts
