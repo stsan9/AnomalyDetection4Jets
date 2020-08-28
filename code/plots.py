@@ -125,46 +125,54 @@ def gen_plots(model_name):
     bins = np.linspace(-20, 20, 101)
     make_hists(diff_px, output_px, input_px, bins, feat, feat_diff, model_name)
     # quantitative info
-    mean = np.mean(diff_px)
     ft_idx = 0
-    rmse = np.sqrt(np.mean((output_x[i][:,ft_idx]-input_x[i][:,ft_idx])**2))
+    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
+    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
     print("mean: " + str(mean))
+    print("mean: " + str(np.mean(diff_px)))
     print("rmse: " + str(rmse))
+    print("rmse: " + str(np.std(diff_px)))
 
     feat = '$p_y$ [GeV]'
     feat_diff = '$(p_y^{reco.}  - p_y^{true})/p_y^{true}$'
     make_hists(diff_py, output_py, input_py, bins, feat, feat_diff, model_name)
     # quantitative info
-    mean = np.mean(diff_py)
     ft_idx = 1
-    rmse = np.sqrt(np.mean((output_x[i][:,ft_idx]-input_x[i][:,ft_idx])**2))
+    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
+    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
     print("mean: " + str(mean))
+    print("mean: " + str(np.mean(diff_px)))
     print("rmse: " + str(rmse))
+    print("rmse: " + str(np.std(diff_px)))
 
     feat = '$p_z$ [GeV]'
     feat_diff = '$(p_z^{reco.}  - p_z^{true})/p_z^{true}$'
     make_hists(diff_pz, output_pz, input_pz, bins, feat, feat_diff, model_name)
     # quantitative info
-    mean = np.mean(diff_pz)
     ft_idx = 2
-    rmse = np.sqrt(np.mean((output_x[i][:,ft_idx]-input_x[i][:,ft_idx])**2))
+    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
+    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
     print("mean: " + str(mean))
+    print("mean: " + str(np.mean(diff_px)))
     print("rmse: " + str(rmse))
+    print("rmse: " + str(np.std(diff_px)))
 
     feat = '$E$ [GeV]'
     feat_diff = '$(E^{reco.}  - E^{true})/E^{true}$'
     bins = np.linspace(-5, 35, 101)
     make_hists(diff_e, output_e, input_e, bins, feat, feat_diff, model_name)
     # quantitative info
-    mean = np.mean(diff_e)
     ft_idx = 3
-    rmse = np.sqrt(np.mean((output_x[i][:,ft_idx]-input_x[i][:,ft_idx])**2))
+    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
+    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
     print("mean: " + str(mean))
+    print("mean: " + str(np.mean(diff_px)))
     print("rmse: " + str(rmse))
+    print("rmse: " + str(np.std(diff_px)))
 
 if __name__ == "__main__":
     import argparse
