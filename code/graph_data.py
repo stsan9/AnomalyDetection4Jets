@@ -94,8 +94,8 @@ class GraphDataset(Dataset):
             # cluster jets from the particles in one observation
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
-            for i, jet in enumerate(jets): # for each jet get (px, py, pz, e)
-                if i == 2: # only do leading 2 dijets
+            for idx, jet in enumerate(jets): # for each jet get (px, py, pz, e)
+                if idx == 2: # only do leading 2 dijets
                     break
                     
                 if jet.pt < 200 or len(jet)<=1: continue
