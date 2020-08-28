@@ -3,7 +3,6 @@ Generate Plots for Bump Hunting
 """
 import matplotlib as plt
 import torch
-import torch.multiprocessing as mp
 import os.path as osp
 from models import EdgeNet
 from graph_data import GraphDataset
@@ -13,7 +12,7 @@ import numpy as np
 
 cuts = 0.97  # loss thresholds percentiles
 model_fname = "GNN_AE_EdgeConv" # default
-batch_size = 4
+#batch_size = 4
 
 
 # m_12 = sqrt ( (E_1 + E_2)^2 - (p_x1 + p_x2)^2 - (p_y1 + p_y2)^2 - (p_z1 + p_z2)^2 )
@@ -44,7 +43,7 @@ def outlier_mass_distinction(data):
 def process(data_loader, data_len):
     # load model for loss calculation
     model = EdgeNet()
-    modpath = osp.join('/anomalyvol/models/',model_fname,'.best.pth')
+    modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     model.load_state_dict(torch.load(modpath))
     model.eval()
     mse = MSELoss(reduction='mean')
@@ -52,10 +51,9 @@ def process(data_loader, data_len):
     # colms: e_1, px_1, py_1, pz_1, e2, px_2, py_2, pz_2, loss_1, loss_2
     # indices: 0, 1,  , 2   , 3   , 4 , 5   , 6   , 7   , 8     , 9
     jet_data = torch.empty(0, 10, dtype=torch.float32)
-    
-    t = tqdm.tqdm(enumerate(data_loader),total=data_len / batch_size)
+
     with torch.no_grad():
-        for i, data in t:
+        for i, data in enumerate(data_loader):
             if(len(data) >= 2):
                 jet1 = data[0]
                 jet2 = data[1]
@@ -96,7 +94,7 @@ def make_graph(all_mass, outlier_mass, bb):
     weights = np.ones_like(all_mass) / len(all_mass)
     plt.hist(np.array(all_mass), alpha = 0.5, bins=bins, weights=weights, label='All events')
     plt.legend()
-    plt.xlabel('m_{jj} [GeV]')
+    plt.xlabel('$m_{jj}$ [GeV]')
     plt.ylabel('Normalized events [a. u.]')
     plt.tight_layout()
     plt.savefig('/anomalyvol/figures/bump_' + bb + '.pdf')
@@ -105,7 +103,7 @@ def make_graph(all_mass, outlier_mass, bb):
 def bump_hunt():
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/', bb=1)
-    bb1_loader = DataListLoader(bb1, batch_size=batch_size)
+    bb1_loader = DataListLoader(bb1)
     bb1.collate_fn = collate
     bb1_size = len(bb1)
     all_mass, outlier_mass = process(bb1_loader, bb1_size)
@@ -113,7 +111,7 @@ def bump_hunt():
     
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_geom/bb2/', bb=2)
-    bb2_loader = DataListLoader(bb2, batch_size=batch_size)
+    bb2_loader = DataListLoader(bb2)
     bb2.collate_fn = collate
     bb2_size = len(bb1)
     all_mass, outlier_mass = process(bb2_loader, bb2_size)
@@ -126,5 +124,5 @@ if __name__ == "__main__":
     parser.add_argument("--modelname", type=str, help="saved modelname discluding file extension", required=False)
     args = parser.parse_args()
     
-    model_fname = args.modelname
+    # model_fname = args.modelname
     bump_hunt()
