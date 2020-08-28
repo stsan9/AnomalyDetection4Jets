@@ -123,15 +123,6 @@ class GraphDataset(Dataset):
                     n_particles = len(jet)
                 #print(event_idx, ijet, n_particles, jet.pt, len(jet), self.n_particles, particles.shape[0])
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
-                # save [deta, dphi] as edge attributes (may not be used depending on model)
-                #eta0s = particles[pairs[:,0],6]
-                #eta1s = particles[pairs[:,1],6]
-                #phi0s = particles[pairs[:,0],7]
-                #phi1s = particles[pairs[:,1],7]
-                #detas = np.abs(eta0s - eta1s)
-                #dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
-                #edge_attr = np.stack([detas,dphis],axis=1)
-                #edge_attr = torch.tensor(edge_attr, dtype=torch.float)
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
                 # save [px, py, pz, e] of particles as node attributes and target
@@ -148,10 +139,10 @@ class GraphDataset(Dataset):
                     data = self.pre_transform(data)
                 datas.append([data])
                 ijet += 1
+            print(datas)
 
             if i%self.n_events_merge == self.n_events_merge-1:
                 datas = sum(datas,[])
-                #print(datas)
                 # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
