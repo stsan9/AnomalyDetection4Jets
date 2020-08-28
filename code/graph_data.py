@@ -8,7 +8,6 @@ import pandas as pd
 from pyjet import cluster,DTYPE_PTEPM
 import glob
 import multiprocessing
-from .makedirs import makedirs
 
 def process_func(args):
     self, raw_path, k = args
@@ -174,36 +173,36 @@ class GraphDataset(Dataset):
         data = torch.load(p)
         return data
     
-    def _process(self):
-        f = osp.join(self.processed_dir, 'pre_transform.pt')
-        if osp.exists(f) and torch.load(f) != __repr__(self.pre_transform):
-            logging.warning(
-                'The `pre_transform` argument differs from the one used in '
-                'the pre-processed version of this dataset. If you really '
-                'want to make use of another pre-processing technique, make '
-                'sure to delete `{}` first.'.format(self.processed_dir))
-        f = osp.join(self.processed_dir, 'pre_filter.pt')
-        if osp.exists(f) and torch.load(f) != __repr__(self.pre_filter):
-            logging.warning(
-                'The `pre_filter` argument differs from the one used in the '
-                'pre-processed version of this dataset. If you really want to '
-                'make use of another pre-fitering technique, make sure to '
-                'delete `{}` first.'.format(self.processed_dir))
+#     def _process(self):
+#         f = osp.join(self.processed_dir, 'pre_transform.pt')
+#         if osp.exists(f) and torch.load(f) != __repr__(self.pre_transform):
+#             logging.warning(
+#                 'The `pre_transform` argument differs from the one used in '
+#                 'the pre-processed version of this dataset. If you really '
+#                 'want to make use of another pre-processing technique, make '
+#                 'sure to delete `{}` first.'.format(self.processed_dir))
+#         f = osp.join(self.processed_dir, 'pre_filter.pt')
+#         if osp.exists(f) and torch.load(f) != __repr__(self.pre_filter):
+#             logging.warning(
+#                 'The `pre_filter` argument differs from the one used in the '
+#                 'pre-processed version of this dataset. If you really want to '
+#                 'make use of another pre-fitering technique, make sure to '
+#                 'delete `{}` first.'.format(self.processed_dir))
 
-        if files_exist(self.processed_paths):  # pragma: no cover
-            return
+#         if files_exist(self.processed_paths):  # pragma: no cover
+#             return
 
-        print('Processing...')
+#         print('Processing...')
 
-        makedirs(self.processed_dir)
-        self.process()
+#         makedirs(self.processed_dir)
+#         self.process()
 
-        path = osp.join(self.processed_dir, 'pre_transform.pt')
-        torch.save(__repr__(self.pre_transform), path)
-        path = osp.join(self.processed_dir, 'pre_filter.pt')
-        torch.save(__repr__(self.pre_filter), path)
+#         path = osp.join(self.processed_dir, 'pre_transform.pt')
+#         torch.save(__repr__(self.pre_transform), path)
+#         path = osp.join(self.processed_dir, 'pre_filter.pt')
+#         torch.save(__repr__(self.pre_filter), path)
 
-        print('Done!')
+#         print('Done!')
 
 if __name__ == "__main__":
     import argparse
