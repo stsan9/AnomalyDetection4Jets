@@ -64,14 +64,12 @@ def in_out_diff_concat(diff, output, inputs):
 
 def make_hists(diff, output, inputs, bin1, feat, model_name):
     plt.figure(figsize=(6,4.4))
-    from matplotlib import rcParams
-    rcParams.update({'figure.autolayout': True})
-    plt.tight_layout()
     plt.hist(inputs, bins=bin1,alpha=0.5, label='input')
     plt.hist(output, bins=bin1,alpha=0.5, label='output')
     plt.legend()
     plt.xlabel(feat, fontsize=16)
     plt.ylabel('Particles', fontsize=16)
+    plt.tight_layout()
     plt.show()
     plt.savefig('figures/' + model_name + '_' + feat + '.pdf')
 
