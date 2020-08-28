@@ -102,7 +102,7 @@ def make_graph(all_mass, outlier_mass, bb):
 # Integrate all parts
 def bump_hunt():
     print("Plotting bb1")
-    bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/', bb=1)
+    bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
     bb1_loader = DataListLoader(bb1)
     bb1.collate_fn = collate
     bb1_size = len(bb1)
@@ -110,7 +110,7 @@ def bump_hunt():
     make_graph(all_mass, outlier_mass, 'bb1')
     
     print("Plotting bb2")
-    bb2 = GraphDataset('/anomalyvol/data/gnn_geom/bb2/', bb=2)
+    bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
     bb2_loader = DataListLoader(bb2)
     bb2.collate_fn = collate
     bb2_size = len(bb1)
