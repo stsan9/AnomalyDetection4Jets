@@ -76,14 +76,14 @@ class GraphDataset(Dataset):
         all_events = df.values
         rows = all_events.shape[0]
         cols = all_events.shape[1]
-        datas = []
         for i in range(rows):
-            if i%self.n_events_merge == 0:
-                datas = []
+            # if i%self.n_events_merge == 0:
+            # merge by event
+            datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
-            if event_idx % 100 == 0:
-                print('Processing event {}'.format(event_idx))
+            # if event_idx % 100 == 0:
+            #     print('Processing event {}'.format(event_idx))
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
             for j in range(cols // 3):
                 if (all_events[i][j*3]>0):
@@ -95,7 +95,10 @@ class GraphDataset(Dataset):
             # cluster jets from the particles in one observation
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
-            for jet in jets: # for each jet get (px, py, pz, e)
+            for i, jet in enumerate(jets): # for each jet get (px, py, pz, e)
+                if i == 2: # only do leading 2 dijets
+                    break
+                    
                 if jet.pt < 200 or len(jet)<=1: continue
                 if self.n_particles > -1:
                     n_particles = self.n_particles
@@ -147,11 +150,11 @@ class GraphDataset(Dataset):
                 datas.append([data])
                 ijet += 1
 
-            if i%self.n_events_merge == self.n_events_merge-1:
-                datas = sum(datas,[])
-                #print(datas)
-                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
-                torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
+            #if i%self.n_events_merge == self.n_events_merge-1:
+            datas = sum(datas,[])
+            #print(datas)
+            # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
+            torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         print(len(self.processed_file_names))
