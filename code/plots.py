@@ -70,14 +70,14 @@ def make_hists(diff, output, inputs, bin1, feat, feat_diff, model_name):
     plt.xlabel(feat, fontsize=16)
     plt.ylabel('Particles', fontsize=16)
     plt.tight_layout()
-    plt.savefig('figures/' + model_name + '_' + feat + '.pdf')
+    plt.savefig('figures/' + model_name + '_' + feat[:-6] + '.pdf')
     
     plt.figure(figsize=(6,4.4))
     plt.hist(diff, bins=np.linspace(-5, 5, 101))
     plt.xlabel(feat_diff, fontsize=16)
     plt.ylabel('Particles', fontsize=16)
     plt.tight_layout()
-    plt.savefig('figures/' + model_name + '_' + feat + '_diff.pdf')
+    plt.savefig('figures/' + model_name + '_' + feat[:-6] + '_diff.pdf')
 
 def gen_plots(model_name):
     model = get_model(model_name)
@@ -119,21 +119,21 @@ def gen_plots(model_name):
     diff_e, output_e, input_e = in_out_diff_concat(diff_e, output_e, input_e)
     
     # make plots
-    feat = '$p_x$~[GeV]'
-    feat_diff = '$(p_x^\text{reco.}  - p_x^\text{true})/p_x^\text{true}$'
+    feat = '$p_x$ [GeV]'
+    feat_diff = '$(p_x^{reco.}  - p_x^{true})/p_x^{true}$'
     bins = np.linspace(-20, 20, 101)
     make_hists(diff_px, output_px, input_px, bins, feat, feat_diff, model_name)
 
-    feat = '$p_y$~[GeV]'
-    feat_diff = '$(p_y^\text{reco.}  - p_y^\text{true})/p_y^\text{true}$'
+    feat = '$p_y$ [GeV]'
+    feat_diff = '$(p_y^{reco.}  - p_y^{true})/p_y^{true}$'
     make_hists(diff_py, output_py, input_py, bins, feat, feat_diff, model_name)
 
-    feat = '$p_z$~[GeV]'
-    feat_diff = '$(p_z^\text{reco.}  - p_z^\text{true})/p_z^\text{true}$'
+    feat = '$p_z$ [GeV]'
+    feat_diff = '$(p_z^{reco.}  - p_z^{true})/p_z^{true}$'
     make_hists(diff_pz, output_pz, input_pz, bins, feat, feat_diff, model_name)
 
-    feat = '$E$~[GeV]'
-    feat_diff = '$(E^\text{reco.}  - E^\text{true})/E^\text{true}$'
+    feat = '$E$ [GeV]'
+    feat_diff = '$(E^{reco.}  - E^{true})/E^{true}$'
     bins = np.linspace(-5, 35, 101)
     make_hists(diff_e, output_e, input_e, bins, feat, feat_diff, model_name)
 
