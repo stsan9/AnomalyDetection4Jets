@@ -68,7 +68,7 @@ def make_hists(diff, output, inputs, bin1, feat, model_name):
     plt.hist(output, bins=bin1,alpha=0.5, label='output')
     plt.legend()
     plt.xlabel(feat, fontsize=16)
-    plt.ylabel('Particles', fontsize=16)
+    plt.ylabel('particles', fontsize=16)
     plt.tight_layout()
     plt.savefig('figures/' + model_name + '_' + feat + '.pdf')
 
