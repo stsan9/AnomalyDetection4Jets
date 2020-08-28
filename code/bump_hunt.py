@@ -30,7 +30,7 @@ def make_graph(all_mass, outlier_mass, bb):
     plt.savefig('/anomalyvol/figures/bump_' + bb + '.pdf')
 
 # loop through dataset to extract useful information
-def process_loop(data_loader, data_len):
+def process(data_loader, data_len):
     # load model for loss calculation
     model = EdgeNet()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
@@ -45,8 +45,8 @@ def process_loop(data_loader, data_len):
     with torch.no_grad():
         for k, data in enumerate(data_loader): # go through all 10k data lists
             data = data[0] # remove extra brackets
-            for i in range(len(data)):    # traverse horizontally
-                if i % 2 == 1: # skip odd indices; data formatted s.t. every 2 sequential jets is a dijet
+            for i in range(len(data)):    # traverse list
+                if i % 2 == 1: # skip odd indices; data formatted s.t. every 2 jets is the leading 2 jets for their event
                     continue
                 if(i + 1 < len(data)):
                     jet1 = data[i]
@@ -72,15 +72,18 @@ def bump_hunt():
     jet_losses = process(bb1_loader, bb1_size) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses.flatten().numpy()
     mse_thresh = np.quantile(losses, cut)
-    # get mass
+    # make dataframe of mass, loss, loss, outlier_class
     df = pd.read_hdf('/anomalyvol/data/dijet_mass/bb1_jet_mass.h5')
     all_mass = df['mass']
     df['loss1'] = jet_losses[:,0]
     df['loss2'] = jet_losses[:,1]
+    # id outliers
     df['outlier'] = 0
-    data_df.loc[data_df['loss1'] > mse_thresh or data_df['loss2'] > mse_thresh, 'outlier'] = 1
-    outliers = data_df.loc[data_df.outlier == 1]
+    df.loc[(df['loss1'] > mse_thresh) | (df['loss2'] > mse_thresh), 'outlier'] = 1
+    outliers = df.loc[df.outlier == 1]
+    # get the mass of only outliers
     outlier_mass = outliers['mass']
+    # make graph
     make_graph(all_mass, outlier_mass, 'bb1')
     
     print("Plotting bb2")
@@ -96,8 +99,8 @@ def bump_hunt():
     df['loss1'] = jet_losses[:,0]
     df['loss2'] = jet_losses[:,1]
     df['outlier'] = 0
-    data_df.loc[data_df['loss1'] > mse_thresh or data_df['loss2'] > mse_thresh, 'outlier'] = 1
-    outliers = data_df.loc[data_df.outlier == 1]
+    df.loc[(df['loss1'] > mse_thresh) | (df['loss2'] > mse_thresh), 'outlier'] = 1
+    outliers = df.loc[df.outlier == 1]
     outlier_mass = outliers['mass']
     make_graph(all_mass, outlier_mass, 'bb2')
 
@@ -107,6 +110,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--modelname", type=str, help="saved modelname discluding file extension", required=False)
     args = parser.parse_args()
-
+    
     #model_fname = args.modelname
-    #bump_hunt()
+    bump_hunt()
