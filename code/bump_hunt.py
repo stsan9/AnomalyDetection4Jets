@@ -53,22 +53,25 @@ def process(data_loader, data_len):
     jet_data = torch.empty(0, 10, dtype=torch.float32)
 
     with torch.no_grad():
-        for i, data in enumerate(data_loader):
-            if(len(data) >= 2):
-                jet1 = data[0]
-                jet2 = data[1]
-                # calculate loss
-                jet1_rec = model(jet1)
-                jet1_y = jet1.x
-                loss1 = mse(jet1_rec, jet1_y)
-                jet2_rec = model(jet2)
-                jet2_y = jet2.x
-                loss2 = mse(jet2_rec, jet2_y)
-                # data.u = ([n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
-                dijet = torch.tensor([[jet1.u[5], jet1.u[2], jet1.u[3], jet1.u[4],
-                                       jet2.u[5], jet2.u[2], jet2.u[3], jet2.u[4],
-                                       loss1, loss2]])
-                jet_data = torch.cat((jet_data, dijet))
+        for k, data_list in enumerate(data_loader): # go through all 10k data lists
+            for i, data in enumerate(data_list):    # traverse horizontally
+                if i % 2 == 1: # skip odd indices; data formatted s.t. every 2 sequential jets is a dijet
+                    pass
+                if(i + 1 < data_len):
+                    jet1 = data[i]
+                    jet2 = data[i + 1]
+                    # calculate loss
+                    jet1_rec = model(jet1)
+                    jet1_y = jet1.x
+                    loss1 = mse(jet1_rec, jet1_y)
+                    jet2_rec = model(jet2)
+                    jet2_y = jet2.x
+                    loss2 = mse(jet2_rec, jet2_y)
+                    # data.u = ([n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
+                    dijet = torch.tensor([[jet1.u[5], jet1.u[2], jet1.u[3], jet1.u[4],
+                                           jet2.u[5], jet2.u[2], jet2.u[3], jet2.u[4],
+                                           loss1, loss2]])
+                    jet_data = torch.cat((jet_data, dijet))
     
     # calc invariant mass for all jets
     all_mass = invariant_mass(jet_data[:,0], jet_data[:,1], jet_data[:,2], jet_data[:,3], # jet1 : e, px, py, pz
