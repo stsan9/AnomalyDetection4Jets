@@ -40,33 +40,38 @@ def process(data_loader, data_len):
 
     # colms: e_1, px_1, py_1, pz_1, e2, px_2, py_2, pz_2, loss_1, loss_2
     # indices: 0, 1,  , 2   , 3   , 4 , 5   , 6   , 7   , 8     , 9
-    jet_data = torch.empty(0, 2, dtype=torch.float32)
-
+    jet_data = torch.zeros((1000000, 2), dtype=torch.float32)
+    event = -1
     with torch.no_grad():
         for k, data in enumerate(data_loader): # go through all 10k data lists
             data = data[0] # remove extra brackets
-            for i in range(len(data)):    # traverse list
-                if i % 2 == 1: # skip odd indices; data formatted s.t. every 2 jets is the leading 2 jets for their event
+            for i in range(0,len(data)):    # traverse list
+                event += 1
+                if (event)%1000==0: print ('processing event %i'% event)
+                # check that they are from the same event
+                if i<len(data)-1 and data[i].u[0][0].item() != data[i+1].u[0][0].item():
                     continue
-                if(i + 1 < len(data)):
-                    jet1 = data[i]
-                    jet2 = data[i + 1]
-                    # calculate loss
-                    jet1_rec = model(jet1)
-                    jet1_y = jet1.x
-                    loss1 = mse(jet1_rec, jet1_y)
-                    jet2_rec = model(jet2)
-                    jet2_y = jet2.x
-                    loss2 = mse(jet2_rec, jet2_y)
-                    dijet_losses = torch.tensor([[loss1, loss2]])
-                    jet_data = torch.cat((jet_data, dijet_losses))
-    
+                # and that's not a 2nd+3rd jet:
+                if i>0 and data[i-1].u[0][0].item() == data[i].u[0][0].item():
+                    continue                    
+                # run inference on both jets at the same time
+                jets = Batch.from_data_list(data[i:i+2])
+                jets_x = jets.x
+                jets_rec = model(jets)
+                jet_rec_0 = jets_rec[jets.batch==jets.batch[0]]
+                jet_rec_1 = jets_rec[jets.batch==jets.batch[-1]]
+                jet_x_0 = jets_x[jets.batch==jets.batch[0]]
+                jet_x_1 = jets_x[jets.batch==jets.batch[-1]]
+                jet_losses = torch.tensor([mse(jet_rec_0, jet_x_0),
+                                           mse(jet_rec_1, jet_x_1)])
+                jet_data[event,:] = jet_losses
     return jet_data
 
 # Integrate all parts
 def bump_hunt():
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
+    print("done processing bb1")
     bb1_loader = DataListLoader(bb1)
     bb1_size = len(bb1)
     jet_losses = process(bb1_loader, bb1_size) # colms: [jet1_loss, jet2_loss]
