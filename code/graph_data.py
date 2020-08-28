@@ -76,13 +76,12 @@ class GraphDataset(Dataset):
         all_events = df.values
         rows = all_events.shape[0]
         cols = all_events.shape[1]
+        datas = []
         for i in range(rows):
-            if i % self.n_events_merge == 0:
+            if i%self.n_events_merge == 0:
                 datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
-            if event_idx % self.n_events_merge == 0:
-                print('Processing event {}'.format(event_idx))
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
             for j in range(cols // 3):
                 if (all_events[i][j*3]>0):
@@ -94,10 +93,7 @@ class GraphDataset(Dataset):
             # cluster jets from the particles in one observation
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
-            for idx, jet in enumerate(jets): # for each jet get (px, py, pz, e)
-                if idx == 2: # only do leading 2 dijets
-                    break
-                    
+            for jet in jets: # for each jet get (px, py, pz, e)
                 if jet.pt < 200 or len(jet)<=1: continue
                 if self.n_particles > -1:
                     n_particles = self.n_particles
@@ -123,6 +119,15 @@ class GraphDataset(Dataset):
                     n_particles = len(jet)
                 #print(event_idx, ijet, n_particles, jet.pt, len(jet), self.n_particles, particles.shape[0])
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
+                # save [deta, dphi] as edge attributes (may not be used depending on model)
+                #eta0s = particles[pairs[:,0],6]
+                #eta1s = particles[pairs[:,1],6]
+                #phi0s = particles[pairs[:,0],7]
+                #phi1s = particles[pairs[:,1],7]
+                #detas = np.abs(eta0s - eta1s)
+                #dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
+                #edge_attr = np.stack([detas,dphis],axis=1)
+                #edge_attr = torch.tensor(edge_attr, dtype=torch.float)
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
                 # save [px, py, pz, e] of particles as node attributes and target
@@ -139,15 +144,16 @@ class GraphDataset(Dataset):
                     data = self.pre_transform(data)
                 datas.append([data])
                 ijet += 1
-            print(i)
-            if i % self.n_events_merge == self.n_events_merge-1:
-                print("Saving")
+
+            if i%self.n_events_merge == self.n_events_merge-1:
                 datas = sum(datas,[])
+                #print(datas)
                 # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         print(len(self.processed_file_names))
+        # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
             pars = []
             for k in range(self.n_events // self.chunk_size):
@@ -162,6 +168,37 @@ class GraphDataset(Dataset):
         p = osp.join(self.processed_dir, self.processed_file_names[idx])
         data = torch.load(p)
         return data
+    
+    def _process(self):
+        f = osp.join(self.processed_dir, 'pre_transform.pt')
+        if osp.exists(f) and torch.load(f) != __repr__(self.pre_transform):
+            logging.warning(
+                'The `pre_transform` argument differs from the one used in '
+                'the pre-processed version of this dataset. If you really '
+                'want to make use of another pre-processing technique, make '
+                'sure to delete `{}` first.'.format(self.processed_dir))
+        f = osp.join(self.processed_dir, 'pre_filter.pt')
+        if osp.exists(f) and torch.load(f) != __repr__(self.pre_filter):
+            logging.warning(
+                'The `pre_filter` argument differs from the one used in the '
+                'pre-processed version of this dataset. If you really want to '
+                'make use of another pre-fitering technique, make sure to '
+                'delete `{}` first.'.format(self.processed_dir))
+
+        if files_exist(self.processed_paths):  # pragma: no cover
+            return
+
+        print('Processing...')
+
+        makedirs(self.processed_dir)
+        self.process()
+
+        path = osp.join(self.processed_dir, 'pre_transform.pt')
+        torch.save(__repr__(self.pre_transform), path)
+        path = osp.join(self.processed_dir, 'pre_filter.pt')
+        torch.save(__repr__(self.pre_filter), path)
+
+        print('Done!')
 
 if __name__ == "__main__":
     import argparse
