@@ -39,7 +39,7 @@ class GraphDataset(Dataset):
     """
     def __init__(self, root, transform=None, pre_transform=None,
                  n_particles=-1, bb=0, n_events=-1, n_proc=1,
-                 n_events_merge=2):
+                 n_events_merge=100):
         self.n_particles = n_particles
         self.bb = bb
         self.n_events = 1000000 if n_events==-1 else n_events
@@ -77,12 +77,12 @@ class GraphDataset(Dataset):
         rows = all_events.shape[0]
         cols = all_events.shape[1]
         for i in range(rows):
-            if i%self.n_events_merge == 0:
+            if i % self.n_events_merge == 0:
                 datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
-            # if event_idx % 100 == 0:
-            #     print('Processing event {}'.format(event_idx))
+            if event_idx % self.n_events_merge == 0:
+                print('Processing event {}'.format(event_idx))
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
             for j in range(cols // 3):
                 if (all_events[i][j*3]>0):
