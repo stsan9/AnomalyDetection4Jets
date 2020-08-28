@@ -77,9 +77,8 @@ class GraphDataset(Dataset):
         rows = all_events.shape[0]
         cols = all_events.shape[1]
         for i in range(rows):
-            # if i%self.n_events_merge == 0:
-            # merge by event
-            datas = []
+            if i%self.n_events_merge == 0:
+                datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
             # if event_idx % 100 == 0:
@@ -150,11 +149,11 @@ class GraphDataset(Dataset):
                 datas.append([data])
                 ijet += 1
 
-            #if i%self.n_events_merge == self.n_events_merge-1:
-            datas = sum(datas,[])
-            #print(datas)
-            # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
-            torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
+            if i%self.n_events_merge == self.n_events_merge-1:
+                datas = sum(datas,[])
+                #print(datas)
+                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
+                torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         print(len(self.processed_file_names))
