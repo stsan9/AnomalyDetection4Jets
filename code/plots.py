@@ -64,10 +64,11 @@ def in_out_diff_concat(diff, output, inputs):
 
 def make_hists(diff, output, inputs, bin1, feat, model_name):
     plt.figure(figsize=(6,4.4))
+    plt.tight_layout()
     plt.hist(inputs, bins=bin1,alpha=0.5, label='input')
     plt.hist(output, bins=bin1,alpha=0.5, label='output')
     plt.legend()
-    plt.xlabel(feat + ' [GeV]', fontsize=14)
+    plt.xlabel(feat, fontsize=14)
     plt.ylabel('Particles', fontsize=14)
     plt.show()
     plt.savefig('figures/' + model_name + '_' + feat + '.pdf')
@@ -112,17 +113,17 @@ def gen_plots(model_name):
     diff_e, output_e, input_e = in_out_diff_concat(diff_e, output_e, input_e)
     
     # make plots
-    feat = 'px'
+    feat = '$p_x~[GeV]$'
     bins = np.linspace(-20, 20, 101)
     make_hists(diff_px, output_px, input_px, bins, feat, model_name)
 
-    feat = 'py'
+    feat = '$p_x~[GeV]$'
     make_hists(diff_py, output_py, input_py, bins, feat, model_name)
 
-    feat = 'pz'
+    feat = '$p_x~[GeV]$'
     make_hists(diff_pz, output_pz, input_pz, bins, feat, model_name)
 
-    feat = 'e'
+    feat = '$E~[GeV]$'
     bins = np.linspace(-5, 35, 101)
     make_hists(diff_e, output_e, input_e, bins, feat, model_name)
 
