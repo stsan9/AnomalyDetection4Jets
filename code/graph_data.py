@@ -139,16 +139,15 @@ class GraphDataset(Dataset):
                     data = self.pre_transform(data)
                 datas.append([data])
                 ijet += 1
-            print(datas)
-
-            if i%self.n_events_merge == self.n_events_merge-1:
+            print(i)
+            if i % self.n_events_merge == self.n_events_merge-1:
+                print("Saving")
                 datas = sum(datas,[])
                 # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         print(len(self.processed_file_names))
-        # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
             pars = []
             for k in range(self.n_events // self.chunk_size):
@@ -163,37 +162,6 @@ class GraphDataset(Dataset):
         p = osp.join(self.processed_dir, self.processed_file_names[idx])
         data = torch.load(p)
         return data
-    
-#     def _process(self):
-#         f = osp.join(self.processed_dir, 'pre_transform.pt')
-#         if osp.exists(f) and torch.load(f) != __repr__(self.pre_transform):
-#             logging.warning(
-#                 'The `pre_transform` argument differs from the one used in '
-#                 'the pre-processed version of this dataset. If you really '
-#                 'want to make use of another pre-processing technique, make '
-#                 'sure to delete `{}` first.'.format(self.processed_dir))
-#         f = osp.join(self.processed_dir, 'pre_filter.pt')
-#         if osp.exists(f) and torch.load(f) != __repr__(self.pre_filter):
-#             logging.warning(
-#                 'The `pre_filter` argument differs from the one used in the '
-#                 'pre-processed version of this dataset. If you really want to '
-#                 'make use of another pre-fitering technique, make sure to '
-#                 'delete `{}` first.'.format(self.processed_dir))
-
-#         if files_exist(self.processed_paths):  # pragma: no cover
-#             return
-
-#         print('Processing...')
-
-#         makedirs(self.processed_dir)
-#         self.process()
-
-#         path = osp.join(self.processed_dir, 'pre_transform.pt')
-#         torch.save(__repr__(self.pre_transform), path)
-#         path = osp.join(self.processed_dir, 'pre_filter.pt')
-#         torch.save(__repr__(self.pre_filter), path)
-
-#         print('Done!')
 
 if __name__ == "__main__":
     import argparse
