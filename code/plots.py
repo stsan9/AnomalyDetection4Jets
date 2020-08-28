@@ -62,15 +62,22 @@ def in_out_diff_concat(diff, output, inputs):
     inputs = np.concatenate(inputs)
     return [diff, output, inputs]
 
-def make_hists(diff, output, inputs, bin1, feat, model_name):
+def make_hists(diff, output, inputs, bin1, feat, feat_diff, model_name):
     plt.figure(figsize=(6,4.4))
-    plt.hist(inputs, bins=bin1,alpha=0.5, label='input')
-    plt.hist(output, bins=bin1,alpha=0.5, label='output')
+    plt.hist(inputs, bins=bin1,alpha=0.5, label='Input')
+    plt.hist(output, bins=bin1,alpha=0.5, label='Output')
     plt.legend()
     plt.xlabel(feat, fontsize=16)
-    plt.ylabel('particles', fontsize=16)
+    plt.ylabel('Particles', fontsize=16)
     plt.tight_layout()
     plt.savefig('figures/' + model_name + '_' + feat + '.pdf')
+    
+    plt.figure(figsize=(6,4.4))
+    plt.hist(diff, bins=np.linspace(-5, 5, 101))
+    plt.xlabel(feat_diff, fontsize=16)
+    plt.ylabel('Particles', fontsize=16)
+    plt.tight_layout()
+    plt.savefig('figures/' + model_name + '_' + feat + '_diff.pdf')
 
 def gen_plots(model_name):
     model = get_model(model_name)
@@ -112,19 +119,23 @@ def gen_plots(model_name):
     diff_e, output_e, input_e = in_out_diff_concat(diff_e, output_e, input_e)
     
     # make plots
-    feat = '$p_x~[GeV]$'
+    feat = '$p_x$~[GeV]'
+    feat_diff = '$(p_x^\text{reco.}  - p_x^\text{true})/p_x^\text{true}$'
     bins = np.linspace(-20, 20, 101)
-    make_hists(diff_px, output_px, input_px, bins, feat, model_name)
+    make_hists(diff_px, output_px, input_px, bins, feat, feat_diff, model_name)
 
-    feat = '$p_y~[GeV]$'
-    make_hists(diff_py, output_py, input_py, bins, feat, model_name)
+    feat = '$p_y$~[GeV]'
+    feat_diff = '$(p_y^\text{reco.}  - p_y^\text{true})/p_y^\text{true}$'
+    make_hists(diff_py, output_py, input_py, bins, feat, feat_diff, model_name)
 
-    feat = '$p_z~[GeV]$'
-    make_hists(diff_pz, output_pz, input_pz, bins, feat, model_name)
+    feat = '$p_z$~[GeV]'
+    feat_diff = '$(p_z^\text{reco.}  - p_z^\text{true})/p_z^\text{true}$'
+    make_hists(diff_pz, output_pz, input_pz, bins, feat, feat_diff, model_name)
 
-    feat = '$E~[GeV]$'
+    feat = '$E$~[GeV]'
+    feat_diff = '$(E^\text{reco.}  - E^\text{true})/E^\text{true}$'
     bins = np.linspace(-5, 35, 101)
-    make_hists(diff_e, output_e, input_e, bins, feat, model_name)
+    make_hists(diff_e, output_e, input_e, bins, feat, feat_diff, model_name)
 
 if __name__ == "__main__":
     import argparse
