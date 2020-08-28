@@ -16,7 +16,7 @@ class EdgeNet(nn.Module):
         decoder_nn = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
                                nn.ReLU(),
                                nn.Linear(big_dim, big_dim),
-                               nn.ReLU(a),
+                               nn.ReLU(),
                                nn.Linear(big_dim, input_dim)
         )
         
