@@ -82,8 +82,6 @@ class GraphDataset(Dataset):
                 datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
-            if event_idx % 100 == 0:
-                print('Processing event {}'.format(event_idx))
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
             for j in range(cols // 3):
                 if (all_events[i][j*3]>0):
