@@ -107,7 +107,6 @@ def gen_plots(model_name):
 
     # get output in readable format
     for i in range(len(input_x)):
-        # px
         in_out_diff_append(diff_px, output_px, input_px, i, 0, output_x, input_x)
         in_out_diff_append(diff_py, output_py, input_py, i, 1, output_x, input_x)
         in_out_diff_append(diff_pz, output_pz, input_pz, i, 2, output_x, input_x)
@@ -126,12 +125,8 @@ def gen_plots(model_name):
     make_hists(diff_px, output_px, input_px, bins, feat, feat_diff, model_name)
     # quantitative info
     ft_idx = 0
-    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
-    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
-    print("mean: " + str(mean))
     print("mean: " + str(np.mean(diff_px)))
-    print("rmse: " + str(rmse))
     print("rmse: " + str(np.std(diff_px)))
 
     feat = '$p_y$ [GeV]'
@@ -139,26 +134,18 @@ def gen_plots(model_name):
     make_hists(diff_py, output_py, input_py, bins, feat, feat_diff, model_name)
     # quantitative info
     ft_idx = 1
-    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
-    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
-    print("mean: " + str(mean))
-    print("mean: " + str(np.mean(diff_px)))
-    print("rmse: " + str(rmse))
-    print("rmse: " + str(np.std(diff_px)))
+    print("mean: " + str(np.mean(diff_py)))
+    print("rmse: " + str(np.std(diff_py)))
 
     feat = '$p_z$ [GeV]'
     feat_diff = '$(p_z^{reco.}  - p_z^{true})/p_z^{true}$'
     make_hists(diff_pz, output_pz, input_pz, bins, feat, feat_diff, model_name)
     # quantitative info
     ft_idx = 2
-    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
-    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
-    print("mean: " + str(mean))
-    print("mean: " + str(np.mean(diff_px)))
-    print("rmse: " + str(rmse))
-    print("rmse: " + str(np.std(diff_px)))
+    print("mean: " + str(np.mean(diff_pz)))
+    print("rmse: " + str(np.std(diff_pz)))
 
     feat = '$E$ [GeV]'
     feat_diff = '$(E^{reco.}  - E^{true})/E^{true}$'
@@ -166,13 +153,9 @@ def gen_plots(model_name):
     make_hists(diff_e, output_e, input_e, bins, feat, feat_diff, model_name)
     # quantitative info
     ft_idx = 3
-    mean = np.mean( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
-    rmse = np.std( ((output_x[i][:,ft_idx] - input_x[i][:,ft_idx]) / input_x[i][:,ft_idx]).flatten() )
     print(feat)
-    print("mean: " + str(mean))
-    print("mean: " + str(np.mean(diff_px)))
-    print("rmse: " + str(rmse))
-    print("rmse: " + str(np.std(diff_px)))
+    print("mean: " + str(np.mean(diff_e)))
+    print("rmse: " + str(np.std(diff_e)))
 
 if __name__ == "__main__":
     import argparse
