@@ -83,7 +83,7 @@ def process(data_loader, num_events):
                 jet_data[event,:] = jet_losses
                 
                 
-    return jet_data
+    return jet_data[:event] # cut off extra zeros if any
 
 # Integrate all parts
 def bump_hunt(num_events):
