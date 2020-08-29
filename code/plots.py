@@ -133,9 +133,7 @@ def gen_plots(model_name):
     ft_idx = 0
     print(feat)
     print("mean: " + str(np.mean(diff_px)))
-    up = np.quantile(diff_px, 0.84, axis=0)
-    down = np.quantile(diff_px, 0.16, axis=0)
-    result = (up-down)/2
+    result = iqr(diff_px,rng=(16,84)) / 2
     print('iqr: ' + str(result))
 
     feat = '$p_y$ [GeV]'
@@ -145,9 +143,7 @@ def gen_plots(model_name):
     ft_idx = 1
     print(feat)
     print("mean: " + str(np.mean(diff_py)))
-    up = np.quantile(diff_py, 0.84, axis=0)
-    down = np.quantile(diff_py, 0.16, axis=0)
-    result = (up-down)/2
+    result = iqr(diff_py,rng=(16,84)) / 2
     print('iqr: ' + str(result))
 
     feat = '$p_z$ [GeV]'
@@ -157,9 +153,7 @@ def gen_plots(model_name):
     ft_idx = 2
     print(feat)
     print("mean: " + str(np.mean(diff_pz)))
-    up = np.quantile(diff_pz, 0.84, axis=0)
-    down = np.quantile(diff_pz, 0.16, axis=0)
-    result = (up-down)/2
+    result = iqr(diff_pz,rng=(16,84)) / 2
     print('iqr: ' + str(result))
 
     feat = '$E$ [GeV]'
@@ -170,9 +164,7 @@ def gen_plots(model_name):
     ft_idx = 3
     print(feat)
     print("mean: " + str(np.mean(diff_e)))
-    up = np.quantile(diff_e, 0.84, axis=0)
-    down = np.quantile(diff_e, 0.16, axis=0)
-    result = (up-down)/2
+    result = iqr(diff_e,rng=(16,84)) / 2
     print('iqr: ' + str(result))
 
 if __name__ == "__main__":
