@@ -11,6 +11,7 @@ from graph_data import GraphDataset
 import sys
 from models import EdgeNet
 from sklearn.metrics import mean_squared_error
+from scipy.stats import iqr
 
 device = 'cuda:0'
 batch_size = 4
@@ -118,6 +119,11 @@ def gen_plots(model_name):
     diff_pz, output_pz, input_pz = in_out_diff_concat(diff_pz, output_pz, input_pz)
     diff_e, output_e, input_e = in_out_diff_concat(diff_e, output_e, input_e)
     
+    diff_px = diff_px[np.logical_not(np.isnan(diff_px))]
+    diff_py = diff_py[np.logical_not(np.isnan(diff_py))]
+    diff_pz = diff_pz[np.logical_not(np.isnan(diff_pz))]
+    diff_e = diff_e[np.logical_not(np.isnan(diff_e))]
+
     # make plots
     feat = '$p_x$ [GeV]'
     feat_diff = '$(p_x^{reco.}  - p_x^{true})/p_x^{true}$'
@@ -127,7 +133,10 @@ def gen_plots(model_name):
     ft_idx = 0
     print(feat)
     print("mean: " + str(np.mean(diff_px)))
-    print("rmse: " + str(np.std(diff_px)))
+    up = np.quantile(diff_px, 0.84, axis=0)
+    down = np.quantile(diff_px, 0.16, axis=0)
+    result = (up-down)/2
+    print('iqr: ' + str(result))
 
     feat = '$p_y$ [GeV]'
     feat_diff = '$(p_y^{reco.}  - p_y^{true})/p_y^{true}$'
@@ -136,7 +145,10 @@ def gen_plots(model_name):
     ft_idx = 1
     print(feat)
     print("mean: " + str(np.mean(diff_py)))
-    print("rmse: " + str(np.std(diff_py)))
+    up = np.quantile(diff_py, 0.84, axis=0)
+    down = np.quantile(diff_py, 0.16, axis=0)
+    result = (up-down)/2
+    print('iqr: ' + str(result))
 
     feat = '$p_z$ [GeV]'
     feat_diff = '$(p_z^{reco.}  - p_z^{true})/p_z^{true}$'
@@ -145,7 +157,10 @@ def gen_plots(model_name):
     ft_idx = 2
     print(feat)
     print("mean: " + str(np.mean(diff_pz)))
-    print("rmse: " + str(np.std(diff_pz)))
+    up = np.quantile(diff_pz, 0.84, axis=0)
+    down = np.quantile(diff_pz, 0.16, axis=0)
+    result = (up-down)/2
+    print('iqr: ' + str(result))
 
     feat = '$E$ [GeV]'
     feat_diff = '$(E^{reco.}  - E^{true})/E^{true}$'
@@ -155,7 +170,10 @@ def gen_plots(model_name):
     ft_idx = 3
     print(feat)
     print("mean: " + str(np.mean(diff_e)))
-    print("rmse: " + str(np.std(diff_e)))
+    up = np.quantile(diff_e, 0.84, axis=0)
+    down = np.quantile(diff_e, 0.16, axis=0)
+    result = (up-down)/2
+    print('iqr: ' + str(result))
 
 if __name__ == "__main__":
     import argparse
