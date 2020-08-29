@@ -7,6 +7,7 @@ import os.path as osp
 from models import EdgeNet
 from graph_data import GraphDataset
 from torch_geometric.data import Data, DataListLoader, Batch
+from torch.utils.data import random_split
 from torch.nn import MSELoss
 import numpy as np
 import pandas as pd
@@ -15,14 +16,19 @@ cut = 0.97  # loss thresholds percentiles
 model_fname = "GNN_AE_EdgeConv" # default
 #batch_size = 4
 
+# m_12 = sqrt ( (E_1 + E_2)^2 - (p_x1 + p_x2)^2 - (p_y1 + p_y2)^2 - (p_z1 + p_z2)^2 )
+def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
+    return torch.sqrt(torch.square(jet1_e + jet2_e) - torch.square(jet1_px + jet2_px)
+                      - torch.square(jet1_py + jet2_py) - torch.square(jet1_pz + jet2_pz))
+
 def make_graph(all_mass, outlier_mass, bb):
     # plot mjj bump histograms
     plt.figure(figsize=(6,4.4))
     bins = np.linspace(1000, 6000, 51)
     weights = np.ones_like(outlier_mass) / len(outlier_mass)
-    plt.hist(np.array(outlier_mass), alpha = 0.5, bins=bins, weights=weights, label='Outlier events')
+    plt.hist(outlier_mass, alpha = 0.5, bins=bins, weights=weights, label='Outlier events')
     weights = np.ones_like(all_mass) / len(all_mass)
-    plt.hist(np.array(all_mass), alpha = 0.5, bins=bins, weights=weights, label='All events')
+    plt.hist(all_mass, alpha = 0.5, bins=bins, weights=weights, label='All events')
     plt.legend()
     plt.xlabel('$m_{jj}$ [GeV]', fontsize=16)
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
@@ -30,7 +36,7 @@ def make_graph(all_mass, outlier_mass, bb):
     plt.savefig('/anomalyvol/figures/bump_' + bb + '.pdf')
 
 # loop through dataset to extract useful information
-def process(data_loader, data_len):
+def process(data_loader, num_events):
     # load model for loss calculation
     model = EdgeNet()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
@@ -40,7 +46,7 @@ def process(data_loader, data_len):
 
     # colms: e_1, px_1, py_1, pz_1, e2, px_2, py_2, pz_2, loss_1, loss_2
     # indices: 0, 1,  , 2   , 3   , 4 , 5   , 6   , 7   , 8     , 9
-    jet_data = torch.zeros((1000000, 2), dtype=torch.float32)
+    jet_data = torch.zeros((num_events, 5), dtype=torch.float32)
     event = -1
     with torch.no_grad():
         for k, data in enumerate(data_loader): # go through all 10k data lists
@@ -50,9 +56,11 @@ def process(data_loader, data_len):
                 if (event)%1000==0: print ('processing event %i'% event)
                 # check that they are from the same event
                 if i<len(data)-1 and data[i].u[0][0].item() != data[i+1].u[0][0].item():
+                    event -= 1
                     continue
                 # and that's not a 2nd+3rd jet:
                 if i>0 and data[i-1].u[0][0].item() == data[i].u[0][0].item():
+                    event -= 1
                     continue                    
                 # run inference on both jets at the same time
                 jets = Batch.from_data_list(data[i:i+2])
@@ -62,59 +70,82 @@ def process(data_loader, data_len):
                 jet_rec_1 = jets_rec[jets.batch==jets.batch[-1]]
                 jet_x_0 = jets_x[jets.batch==jets.batch[0]]
                 jet_x_1 = jets_x[jets.batch==jets.batch[-1]]
-                jet_losses = torch.tensor([mse(jet_rec_0, jet_x_0),
-                                           mse(jet_rec_1, jet_x_1)])
+                # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
+                jet1_u = data[i].u[0]
+                jet2_u = data[i+1].u[0]
+                dijet_mass = invariant_mass(jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5],
+                                            jet2_u[6], jet2_u[3], jet2_u[4], jet2_u[5])
+                jet_losses = torch.tensor([mse(jet_rec_0, jet_x_0), # loss of jet 1
+                                           mse(jet_rec_1, jet_x_1), # loss of jet 2
+                                           dijet_mass,              # mass of dijet
+                                           jet1_u[2],               # mass of jet 1
+                                           jet2_u[2]])              # mass of jet 2
                 jet_data[event,:] = jet_losses
+                
+                
     return jet_data
 
 # Integrate all parts
-def bump_hunt():
+def bump_hunt(num_events):
+    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
+    ignore_files = 10000 - num_files
+    torch.manual_seed(0)
+    
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
+    bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     print("done processing bb1")
     bb1_loader = DataListLoader(bb1)
-    bb1_size = len(bb1)
-    jet_losses = process(bb1_loader, bb1_size) # colms: [jet1_loss, jet2_loss]
-    losses = jet_losses.flatten().numpy()
+    jet_losses = process(bb1_loader, num_events) # colms: [jet1_loss, jet2_loss]
+    losses = jet_losses[:,:2].flatten().numpy()
     mse_thresh = np.quantile(losses, cut)
-    # make dataframe of mass, loss, loss, outlier_class
-    df = pd.read_hdf('/anomalyvol/data/dijet_mass/bb1_jet_mass.h5')
-    all_mass = df['mass']
-    df['loss1'] = jet_losses[:,0]
-    df['loss2'] = jet_losses[:,1]
+    d = {'loss1': jet_losses[:,0],
+         'loss2': jet_losses[:,1],
+         'dijet_mass': jet_losses[:,2],
+         'mass1': jet_losses[:,3],
+         'mass2': jet_losses[:,4]}
+    df = pd.DataFrame(d)
+    all_dijet_mass = df['dijet_mass']
     # id outliers
     df['outlier'] = 0
     df.loc[(df['loss1'] > mse_thresh) | (df['loss2'] > mse_thresh), 'outlier'] = 1
     outliers = df.loc[df.outlier == 1]
     # get the mass of only outliers
-    outlier_mass = outliers['mass']
+    outlier_dijet_mass = outliers['dijet_mass']
     # make graph
-    make_graph(all_mass, outlier_mass, 'bb1')
+    make_graph(all_dijet_mass, outlier_dijet_mass, 'bb1')
     
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
+    bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
-    bb2_size = len(bb2)
-    jet_losses = process(bb2_loader, bb1_size) # colms: [jet1_loss, jet2_loss]
-    losses = jet_losses.flatten().numpy()
+    jet_losses = process(bb2_loader, num_events) # colms: [jet1_loss, jet2_loss]
+    losses = jet_losses[:,:2].flatten().numpy()
     mse_thresh = np.quantile(losses, cut)
-    # get mass
-    df = pd.read_hdf('/anomalyvol/data/dijet_mass/bb2_jet_mass.h5')
-    all_mass = df['mass']
-    df['loss1'] = jet_losses[:,0]
-    df['loss2'] = jet_losses[:,1]
+    d = {'loss1': jet_losses[:,0],
+         'loss2': jet_losses[:,1],
+         'dijet_mass': jet_losses[:,2],
+         'mass1': jet_losses[:,3],
+         'mass2': jet_losses[:,4]}
+    df = pd.DataFrame(d)
+    all_dijet_mass = df['dijet_mass']
+    # id outliers
     df['outlier'] = 0
     df.loc[(df['loss1'] > mse_thresh) | (df['loss2'] > mse_thresh), 'outlier'] = 1
     outliers = df.loc[df.outlier == 1]
-    outlier_mass = outliers['mass']
-    make_graph(all_mass, outlier_mass, 'bb2')
+    # get the mass of only outliers
+    outlier_dijet_mass = outliers['dijet_mass']
+    # make graph
+    make_graph(all_dijet_mass, outlier_dijet_mass, 'bb2')
 
     
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--modelname", type=str, help="saved modelname discluding file extension", required=False)
+    parser.add_argument("--num_events", type=int, help="how many events to process (multiple of 100)", required=True)
     args = parser.parse_args()
     
+    
     #model_fname = args.modelname
-    bump_hunt()
+    bump_hunt(args.num_events)
