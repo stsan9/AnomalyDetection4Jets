@@ -1,10 +1,11 @@
 """
 Generate Plots for Bump Hunting
 """
+import glob
 import matplotlib.pyplot as plt
 import torch
 import os.path as osp
-from models import EdgeNet
+import models
 from graph_data import GraphDataset
 from torch_geometric.data import Data, DataListLoader, Batch
 from torch.utils.data import random_split
@@ -13,14 +14,25 @@ import numpy as np
 import pandas as pd
 
 cut = 0.97  # loss thresholds percentiles
-model_fname = "GNN_AE_EdgeConv" # default
-#batch_size = 4
+model_fname = ""
+model_num = 0
+use_sparseloss = False
 
 # m_12 = sqrt ( (E_1 + E_2)^2 - (p_x1 + p_x2)^2 - (p_y1 + p_y2)^2 - (p_z1 + p_z2)^2 )
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     return torch.sqrt(torch.square(jet1_e + jet2_e) - torch.square(jet1_px + jet2_px)
                       - torch.square(jet1_py + jet2_py) - torch.square(jet1_pz + jet2_pz))
 
+# sparseloss function
+def sparseloss3d(x,y):
+    nparts = x.shape[0]
+    dist = torch.pow(torch.cdist(x,y),2)
+    in_dist_out = torch.min(dist,dim=0)
+    out_dist_in = torch.min(dist,dim=1)
+    loss = torch.sum(in_dist_out.values + out_dist_in.values) / nparts
+    return loss
+
+# creates matplotlib graphs
 def make_graph(all_mass, outlier_mass, bb):
     # plot mjj bump histograms
     plt.figure(figsize=(6,4.4))
@@ -33,16 +45,23 @@ def make_graph(all_mass, outlier_mass, bb):
     plt.xlabel('$m_{jj}$ [GeV]', fontsize=16)
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
-    plt.savefig('/anomalyvol/figures/bump_' + bb + '.pdf')
+    if use_sparseloss == True:
+        plt.savefig('/anomalyvol/figures/' + model_fname + '_withsparseloss_bump_' + bb + '_' + '.pdf')
+    else:
+        plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + '.pdf')
 
 # loop through dataset to extract useful information
 def process(data_loader, num_events):
     # load model for loss calculation
-    model = EdgeNet()
+    model = models.EdgeNet() # default to edgeconv network
+    if model_num == 2: # use metalayer gnn instead
+        model = models.GNNAutoEncoder()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     model.load_state_dict(torch.load(modpath))
     model.eval()
-    mse = MSELoss(reduction='mean')
+    loss_ftn = MSELoss(reduction='mean')
+    if use_sparseloss == True: # use sparseloss function instead of default mse
+        loss_ftn = sparseloss3d
 
     # colms: e_1, px_1, py_1, pz_1, e2, px_2, py_2, pz_2, loss_1, loss_2
     # indices: 0, 1,  , 2   , 3   , 4 , 5   , 6   , 7   , 8     , 9
@@ -75,8 +94,8 @@ def process(data_loader, num_events):
                 jet2_u = data[i+1].u[0]
                 dijet_mass = invariant_mass(jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5],
                                             jet2_u[6], jet2_u[3], jet2_u[4], jet2_u[5])
-                jet_losses = torch.tensor([mse(jet_rec_0, jet_x_0), # loss of jet 1
-                                           mse(jet_rec_1, jet_x_1), # loss of jet 2
+                jet_losses = torch.tensor([loss_ftn(jet_rec_0, jet_x_0), # loss of jet 1
+                                           loss_ftn(jet_rec_1, jet_x_1), # loss of jet 2
                                            dijet_mass,              # mass of dijet
                                            jet1_u[2],               # mass of jet 1
                                            jet2_u[2]])              # mass of jet 2
@@ -98,7 +117,7 @@ def bump_hunt(num_events):
     bb1_loader = DataListLoader(bb1)
     jet_losses = process(bb1_loader, num_events) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
-    mse_thresh = np.quantile(losses, cut)
+    loss_thresh = np.quantile(losses, cut)
     d = {'loss1': jet_losses[:,0],
          'loss2': jet_losses[:,1],
          'dijet_mass': jet_losses[:,2],
@@ -108,7 +127,7 @@ def bump_hunt(num_events):
     all_dijet_mass = df['dijet_mass']
     # id outliers
     df['outlier'] = 0
-    df.loc[(df['loss1'] > mse_thresh) | (df['loss2'] > mse_thresh), 'outlier'] = 1
+    df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
     outliers = df.loc[df.outlier == 1]
     # get the mass of only outliers
     outlier_dijet_mass = outliers['dijet_mass']
@@ -121,7 +140,7 @@ def bump_hunt(num_events):
     bb2_loader = DataListLoader(bb2)
     jet_losses = process(bb2_loader, num_events) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
-    mse_thresh = np.quantile(losses, cut)
+    loss_thresh = np.quantile(losses, cut)
     d = {'loss1': jet_losses[:,0],
          'loss2': jet_losses[:,1],
          'dijet_mass': jet_losses[:,2],
@@ -131,7 +150,7 @@ def bump_hunt(num_events):
     all_dijet_mass = df['dijet_mass']
     # id outliers
     df['outlier'] = 0
-    df.loc[(df['loss1'] > mse_thresh) | (df['loss2'] > mse_thresh), 'outlier'] = 1
+    df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
     outliers = df.loc[df.outlier == 1]
     # get the mass of only outliers
     outlier_dijet_mass = outliers['dijet_mass']
@@ -142,10 +161,18 @@ def bump_hunt(num_events):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--modelname", type=str, help="saved modelname discluding file extension", required=False)
+    print("Model name options:")
+    print([osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')])
+    parser.add_argument("--model_name", type=str, help="saved model name discluding file extension", required=True)
+    parser.add_argument("--model_num", type=int, help="1 = EdgeConv, 2 = MetaLayer", required=True)
+    parser.add_argument("--use_sparseloss", type=bool, help="Boolean toggle use sparseloss (default False)", required=False)
     parser.add_argument("--num_events", type=int, help="how many events to process (multiple of 100)", required=True)
     args = parser.parse_args()
     
-    
-    #model_fname = args.modelname
-    bump_hunt(args.num_events)
+    use_sparseloss = args.use_sparseloss
+    model_num = args.model_num
+    model_fname = args.model_name
+    if model_num > 0 and model_num <= 3:
+        bump_hunt(args.num_events)
+    else:
+        print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")
