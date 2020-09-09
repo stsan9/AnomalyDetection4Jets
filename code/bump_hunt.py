@@ -70,7 +70,7 @@ def process(data_loader, num_events):
     with torch.no_grad():
         for k, data in enumerate(data_loader): # go through all 10k data lists
             data = data[0] # remove extra brackets
-            for i in range(0,len(data)):    # traverse list
+            for i in range(0,len(data) - 1):    # traverse list
                 event += 1
                 if (event)%1000==0: print ('processing event %i'% event)
                 # check that they are from the same event
@@ -175,4 +175,4 @@ if __name__ == "__main__":
     if model_num > 0 and model_num <= 3:
         bump_hunt(args.num_events)
     else:
-        print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")
+        print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")0
