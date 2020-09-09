@@ -84,7 +84,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False):
     
     return sum_loss/(i+1)
 
-def __name__ == "__main__":
+if __name__ == "__main__":
     import argparse
 
     parser.add_argument("hid_dim", type=int, help="latent space size", required=True)
