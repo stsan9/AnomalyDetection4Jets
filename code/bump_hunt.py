@@ -175,4 +175,4 @@ if __name__ == "__main__":
     if model_num > 0 and model_num <= 3:
         bump_hunt(args.num_events)
     else:
-        print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")0
+        print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")
