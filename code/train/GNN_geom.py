@@ -89,10 +89,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--hid_dim", type=int, help="latent space size", required=True)
     parser.add_argument("--no_E", type=bool, help="Bool to remove energy from training and testing", required=True)
+    parser.add_argument("--mod_name", type=bool, help="model name for saving and loading", required=True)
     args = parser.parse_args()
     # data and specifications
     gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0)
-    input_dim = 4
+    input_dim = 3 if args.no_E else 4
     big_dim = 32
     hidden_dim = args.hid_dim
     fulllen = len(gdata)
@@ -103,7 +104,7 @@ if __name__ == "__main__":
     lr = 0.001
     patience = 10
     device = 'cuda:0'
-    model_fname = 'GNN_AE_EdgeConv'
+    model_fname = args.mod_name
 
     model = EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
