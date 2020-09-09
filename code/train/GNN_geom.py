@@ -86,7 +86,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False):
 
 if __name__ == "__main__":
     import argparse
-
+    parser = argparse.ArgumentParser()
     parser.add_argument("hid_dim", type=int, help="latent space size", required=True)
     parser.add_argument("no_E", type=bool, help="Bool to remove energy from training and testing", required=True)
     args = parser.parse_args()
