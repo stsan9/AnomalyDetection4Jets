@@ -53,7 +53,7 @@ def test(model,loader,total,batch_size, no_E = False, use_sparseloss = False):
     model.eval()
     
     loss_ftn = nn.MSELoss(reduction='mean')
-    if (user_sparseloss == true):
+    if (use_sparseloss == true):
         loss_ftn = sparseloss3d
 
     sum_loss = 0.
@@ -75,7 +75,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False, use_sparsel
     model.train()
     
     loss_ftn = nn.MSELoss(reduction='mean')
-    if (user_sparseloss == true):
+    if (use_sparseloss == true):
         loss_ftn = sparseloss3d
 
     sum_loss = 0.
