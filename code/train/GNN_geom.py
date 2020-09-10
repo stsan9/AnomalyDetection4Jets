@@ -38,12 +38,23 @@ class EdgeNet(nn.Module):
         data.x = self.decoder(data.x,data.edge_index)
         return data.x
 
+# darkflow loss function
+def sparseloss3d(x,y):
+    nparts = x.shape[0]
+    dist = torch.pow(torch.cdist(x,y),2)
+    in_dist_out = torch.min(dist,dim=0)
+    out_dist_in = torch.min(dist,dim=1)
+    loss = torch.sum(in_dist_out.values + out_dist_in.values) / nparts
+    return loss
+
 # train and test helper functions
 @torch.no_grad()
-def test(model,loader,total,batch_size, no_E = False):
+def test(model,loader,total,batch_size, no_E = False, use_sparseloss = False):
     model.eval()
     
-    mse = nn.MSELoss(reduction='mean')
+    loss_ftn = nn.MSELoss(reduction='mean')
+    if (user_sparseloss == true):
+        loss_ftn = sparseloss3d
 
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
@@ -53,17 +64,19 @@ def test(model,loader,total,batch_size, no_E = False):
             data.x = data.x[:,:-1]
         y = data.x # the model will overwrite data.x, so save a copy
         batch_output = model(data)
-        batch_loss_item = mse(batch_output, y).item()
+        batch_loss_item = loss_ftn(batch_output, y).item()
         sum_loss += batch_loss_item
         t.set_description("loss = %.5f" % (batch_loss_item))
         t.refresh() # to show immediately the update
 
     return sum_loss/(i+1)
 
-def train(model, optimizer, loader, total, batch_size, no_E = False):
+def train(model, optimizer, loader, total, batch_size, no_E = False, use_sparseloss = False):
     model.train()
     
-    mse = nn.MSELoss(reduction='mean')
+    loss_ftn = nn.MSELoss(reduction='mean')
+    if (user_sparseloss == true):
+        loss_ftn = sparseloss3d
 
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
@@ -74,7 +87,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False):
         y = data.x # the model will overwrite data.x, so save a copy
         optimizer.zero_grad()
         batch_output = model(data)
-        batch_loss = mse(batch_output, y)
+        batch_loss = loss_ftn(batch_output, y)
         batch_loss.backward()
         batch_loss_item = batch_loss.item()
         t.set_description("loss = %.5f" % batch_loss_item)
@@ -89,7 +102,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--hid_dim", type=int, help="latent space size", required=True)
     parser.add_argument("--no_E", type=bool, help="Bool to remove energy from training and testing", required=True)
-    parser.add_argument("--mod_name", type=bool, help="model name for saving and loading", required=True)
+    parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
+    parser.add_argument("--sparseloss", type=bool, help="Bool to use sparseloss", required=True)
     args = parser.parse_args()
     # data and specifications
     gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0)
