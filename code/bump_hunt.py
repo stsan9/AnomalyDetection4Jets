@@ -85,8 +85,8 @@ def process(data_loader, num_events):
                 if use_sparseloss == True: # for no padding model
                     jet_0 = data[i]
                     jet_1 = data[i + 1]
-                    jet_0_x = jet_0.x
-                    jet_1_x = jet_1.x
+                    jet_x_0 = jet_0.x
+                    jet_x_1 = jet_1.x
                     jet_rec_0 = model(jet_0)
                     jet_rec_1 = model(jet_1)
                     # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
