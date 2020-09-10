@@ -51,7 +51,7 @@ def make_graph(all_mass, outlier_mass, bb, cut):
         plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
 
 # loop through dataset to extract useful information
-def process(data_loader, num_events):
+def process(data_loader, num_events, use_sparseloss):
     # load model for loss calculation
     model = models.EdgeNet() # default to edgeconv network
     if model_num == 2: # use metalayer gnn instead
@@ -82,24 +82,43 @@ def process(data_loader, num_events):
                     event -= 1
                     continue                    
                 # run inference on both jets at the same time
-                jets = Batch.from_data_list(data[i:i+2])
-                jets_x = jets.x
-                jets_rec = model(jets)
-                jet_rec_0 = jets_rec[jets.batch==jets.batch[0]]
-                jet_rec_1 = jets_rec[jets.batch==jets.batch[-1]]
-                jet_x_0 = jets_x[jets.batch==jets.batch[0]]
-                jet_x_1 = jets_x[jets.batch==jets.batch[-1]]
-                # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
-                jet1_u = data[i].u[0]
-                jet2_u = data[i+1].u[0]
-                dijet_mass = invariant_mass(jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5],
-                                            jet2_u[6], jet2_u[3], jet2_u[4], jet2_u[5])
-                jet_losses = torch.tensor([loss_ftn(jet_rec_0, jet_x_0), # loss of jet 1
-                                           loss_ftn(jet_rec_1, jet_x_1), # loss of jet 2
-                                           dijet_mass,              # mass of dijet
-                                           jet1_u[2],               # mass of jet 1
-                                           jet2_u[2]])              # mass of jet 2
-                jet_data[event,:] = jet_losses
+                if use_sparseloss == True: # for no padding model
+                    jet_0 = data[i]
+                    jet_1 = data[i + 1]
+                    jet_0_x = jet_0.x
+                    jet_1_x = jet_1.x
+                    jet_rec_0 = model(jet_0)
+                    jet_rec_1 = model(jet_1)
+                    # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
+                    jet0_u = data[i].u[0]
+                    jet1_u = data[i+1].u[0]
+                    dijet_mass = invariant_mass(jet0_u[6], jet0_u[3], jet0_u[4], jet0_u[5],
+                                                jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5])
+                    jet_losses = torch.tensor([loss_ftn(jet_rec_0, jet_x_0), # loss of jet 1
+                                               loss_ftn(jet_rec_1, jet_x_1), # loss of jet 2
+                                               dijet_mass,              # mass of dijet
+                                               jet0_u[2],               # mass of jet 1
+                                               jet1_u[2]])              # mass of jet 2
+                    jet_data[event,:] = jet_losses
+                else:
+                    jets = Batch.from_data_list(data[i:i+2])
+                    jets_x = jets.x
+                    jets_rec = model(jets)
+                    jet_rec_0 = jets_rec[jets.batch==jets.batch[0]]
+                    jet_rec_1 = jets_rec[jets.batch==jets.batch[-1]]
+                    jet_x_0 = jets_x[jets.batch==jets.batch[0]]
+                    jet_x_1 = jets_x[jets.batch==jets.batch[-1]]
+                    # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
+                    jet0_u = data[i].u[0]
+                    jet1_u = data[i+1].u[0]
+                    dijet_mass = invariant_mass(jet0_u[6], jet0_u[3], jet0_u[4], jet0_u[5],
+                                                jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5])
+                    jet_losses = torch.tensor([loss_ftn(jet_rec_0, jet_x_0), # loss of jet 1
+                                               loss_ftn(jet_rec_1, jet_x_1), # loss of jet 2
+                                               dijet_mass,              # mass of dijet
+                                               jet0_u[2],               # mass of jet 1
+                                               jet1_u[2]])              # mass of jet 2
+                    jet_data[event,:] = jet_losses
                 
                 
     return jet_data[:event] # cut off extra zeros if any
