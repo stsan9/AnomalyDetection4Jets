@@ -13,7 +13,7 @@ from torch.nn import MSELoss
 import numpy as np
 import pandas as pd
 
-cut = 0.97  # loss thresholds percentiles
+cuts = [0.97, 0.99, 0.997, 0.999]  # loss thresholds percentiles
 model_fname = ""
 model_num = 0
 use_sparseloss = False
@@ -33,7 +33,7 @@ def sparseloss3d(x,y):
     return loss
 
 # creates matplotlib graphs
-def make_graph(all_mass, outlier_mass, bb):
+def make_graph(all_mass, outlier_mass, bb, cut):
     # plot mjj bump histograms
     plt.figure(figsize=(6,4.4))
     bins = np.linspace(1000, 6000, 51)
@@ -46,9 +46,9 @@ def make_graph(all_mass, outlier_mass, bb):
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
     if use_sparseloss == True:
-        plt.savefig('/anomalyvol/figures/' + model_fname + '_withsparseloss_bump_' + bb + '_' + '.pdf')
+        plt.savefig('/anomalyvol/figures/' + model_fname + '_withsparseloss_bump_' + bb + '_' + str(cut) + '.pdf')
     else:
-        plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + '.pdf')
+        plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
 
 # loop through dataset to extract useful information
 def process(data_loader, num_events):
@@ -117,22 +117,23 @@ def bump_hunt(num_events):
     bb1_loader = DataListLoader(bb1)
     jet_losses = process(bb1_loader, num_events) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
-    loss_thresh = np.quantile(losses, cut)
-    d = {'loss1': jet_losses[:,0],
-         'loss2': jet_losses[:,1],
-         'dijet_mass': jet_losses[:,2],
-         'mass1': jet_losses[:,3],
-         'mass2': jet_losses[:,4]}
-    df = pd.DataFrame(d)
-    all_dijet_mass = df['dijet_mass']
-    # id outliers
-    df['outlier'] = 0
-    df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
-    outliers = df.loc[df.outlier == 1]
-    # get the mass of only outliers
-    outlier_dijet_mass = outliers['dijet_mass']
-    # make graph
-    make_graph(all_dijet_mass, outlier_dijet_mass, 'bb1')
+    for cut in cuts:
+        loss_thresh = np.quantile(losses, cut)
+        d = {'loss1': jet_losses[:,0],
+             'loss2': jet_losses[:,1],
+             'dijet_mass': jet_losses[:,2],
+             'mass1': jet_losses[:,3],
+             'mass2': jet_losses[:,4]}
+        df = pd.DataFrame(d)
+        all_dijet_mass = df['dijet_mass']
+        # id outliers
+        df['outlier'] = 0
+        df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
+        outliers = df.loc[df.outlier == 1]
+        # get the mass of only outliers
+        outlier_dijet_mass = outliers['dijet_mass']
+        # make graph
+        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb1', cut)
     
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
@@ -140,22 +141,23 @@ def bump_hunt(num_events):
     bb2_loader = DataListLoader(bb2)
     jet_losses = process(bb2_loader, num_events) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
-    loss_thresh = np.quantile(losses, cut)
-    d = {'loss1': jet_losses[:,0],
-         'loss2': jet_losses[:,1],
-         'dijet_mass': jet_losses[:,2],
-         'mass1': jet_losses[:,3],
-         'mass2': jet_losses[:,4]}
-    df = pd.DataFrame(d)
-    all_dijet_mass = df['dijet_mass']
-    # id outliers
-    df['outlier'] = 0
-    df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
-    outliers = df.loc[df.outlier == 1]
-    # get the mass of only outliers
-    outlier_dijet_mass = outliers['dijet_mass']
-    # make graph
-    make_graph(all_dijet_mass, outlier_dijet_mass, 'bb2')
+    for cut in cuts:
+        loss_thresh = np.quantile(losses, cut)
+        d = {'loss1': jet_losses[:,0],
+             'loss2': jet_losses[:,1],
+             'dijet_mass': jet_losses[:,2],
+             'mass1': jet_losses[:,3],
+             'mass2': jet_losses[:,4]}
+        df = pd.DataFrame(d)
+        all_dijet_mass = df['dijet_mass']
+        # id outliers
+        df['outlier'] = 0
+        df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
+        outliers = df.loc[df.outlier == 1]
+        # get the mass of only outliers
+        outlier_dijet_mass = outliers['dijet_mass']
+        # make graph
+        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb2', cut)
 
     
 if __name__ == "__main__":
