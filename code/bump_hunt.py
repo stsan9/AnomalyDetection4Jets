@@ -51,7 +51,7 @@ def make_graph(all_mass, outlier_mass, bb, cut):
         plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
 
 # loop through dataset to extract useful information
-def process(data_loader, num_events, use_sparseloss):
+def process(data_loader, num_events):
     # load model for loss calculation
     model = models.EdgeNet() # default to edgeconv network
     if model_num == 2: # use metalayer gnn instead
@@ -194,6 +194,6 @@ if __name__ == "__main__":
     model_num = args.model_num
     model_fname = args.model_name
     if model_num > 0 and model_num <= 3:
-        bump_hunt(args.num_events, use_sparseloss)
+        bump_hunt(args.num_events)
     else:
         print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")
