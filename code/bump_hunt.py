@@ -186,11 +186,11 @@ if __name__ == "__main__":
     print([osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')])
     parser.add_argument("--model_name", type=str, help="saved model name discluding file extension", required=True)
     parser.add_argument("--model_num", type=int, help="1 = EdgeConv, 2 = MetaLayer", required=True)
-    parser.add_argument("--use_sparseloss", type=bool, help="Boolean toggle use sparseloss (default False)", required=False)
+    parser.add_argument("--use_sparseloss", type=int, help="Toggle use of sparseloss (0: False, 1: True)", required=True)
     parser.add_argument("--num_events", type=int, help="how many events to process (multiple of 100)", required=True)
     args = parser.parse_args()
     
-    use_sparseloss = args.use_sparseloss
+    use_sparseloss = [False, True][args.use_sparseloss]
     model_num = args.model_num
     model_fname = args.model_name
     if model_num > 0 and model_num <= 3:
