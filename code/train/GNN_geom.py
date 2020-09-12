@@ -101,12 +101,14 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--hid_dim", type=int, help="latent space size", required=True)
-    parser.add_argument("--no_E", type=bool, help="Bool to remove energy from training and testing", required=True)
+    parser.add_argument("--no_E", type=int, help="Toggle to remove energy from training and testing (0: False, 1: True)", required=True)
     parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
-    parser.add_argument("--sparseloss", type=bool, help="Bool to use sparseloss", required=True)
+    parser.add_argument("--use_sparseloss", type=int, help="Toggle to use sparseloss (0: False, 1: True)", required=True)
     args = parser.parse_args()
     # data and specifications
     gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0)
+    use_sparseloss = [False, True][args.use_sparseloss]
+    no_E = [False, True][args.no_E]
     input_dim = 3 if args.no_E else 4
     big_dim = 32
     hidden_dim = args.hid_dim
@@ -153,10 +155,10 @@ if __name__ == "__main__":
 
     # Training loop
     stale_epochs = 0
-    best_valid_loss = test(model, valid_loader, valid_samples, batch_size)
+    best_valid_loss = test(model, valid_loader, valid_samples, batch_size, no_E, use_sparseloss)
     for epoch in range(0, n_epochs):
-        loss = train(model, optimizer, train_loader, train_samples, batch_size, args.no_E)
-        valid_loss = test(model, valid_loader, valid_samples, batch_size, args.no_E)
+        loss = train(model, optimizer, train_loader, train_samples, batch_size, no_E, use_sparseloss)
+        valid_loss = test(model, valid_loader, valid_samples, batch_size, no_E, use_sparseloss)
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
         print('               Validation Loss: {:.4f}'.format(valid_loss))
 
