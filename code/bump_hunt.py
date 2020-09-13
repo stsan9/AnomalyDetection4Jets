@@ -1,5 +1,5 @@
 """
-Generate Plots for Bump Hunting
+Generate graphs for bump hunting on invariant mass.
 """
 import glob
 import matplotlib.pyplot as plt
@@ -14,26 +14,51 @@ import numpy as np
 import pandas as pd
 
 cuts = [0.97, 0.99, 0.997, 0.999]  # loss thresholds percentiles
-model_fname = ""
-model_num = 0
-use_sparseloss = False
 
-# m_12 = sqrt ( (E_1 + E_2)^2 - (p_x1 + p_x2)^2 - (p_y1 + p_y2)^2 - (p_z1 + p_z2)^2 )
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
+    """
+        Calculates the invariant mass between 2 jets. Based on the formula:
+        m_12 = sqrt((E_1 + E_2)^2 - (p_x1 + p_x2)^2 - (p_y1 + p_y2)^2 - (p_z1 + p_z2)^2)
+
+        Args:
+            jet1_(e, px, py, pz) (torch.float): 4 momentum of first jet of dijet
+            jet2_(e, px, py, pz) (torch.float): 4 momentum of second jet of dijet
+
+        Returns:
+            torch.float dijet invariant mass.
+    """
     return torch.sqrt(torch.square(jet1_e + jet2_e) - torch.square(jet1_px + jet2_px)
                       - torch.square(jet1_py + jet2_py) - torch.square(jet1_pz + jet2_pz))
 
-# sparseloss function
 def sparseloss3d(x,y):
-    nparts = x.shape[0]
+    """
+    Sparse loss function for autoencoders, a permutation invariant euclidean distance function
+    from set x -> y and y -> x.
+
+    Args:
+        x (torch.tensor): input sample
+        y (torch.tensor): output sample
+
+    Returns:
+        torch.tensor of the same shape as x and y representing the loss.
+    """
+    num_parts = x.shape[0]
     dist = torch.pow(torch.cdist(x,y),2)
     in_dist_out = torch.min(dist,dim=0)
     out_dist_in = torch.min(dist,dim=1)
-    loss = torch.sum(in_dist_out.values + out_dist_in.values) / nparts
+    loss = torch.sum(in_dist_out.values + out_dist_in.values) / num_parts
     return loss
 
-# creates matplotlib graphs
-def make_graph(all_mass, outlier_mass, bb, cut):
+def make_graph(all_mass, outlier_mass, bb, cut, model_fname):
+    """
+    Create matplotlib graphs, overlaying histograms of invariant mass for outliers and all events.
+
+    Args:
+        all_mass (tensor): dijet inv mass of all events
+        outlier_mass (tensor): dijet inv mass of outlier events
+        bb (int): which black box
+        cut (float): the percent where the cut on the loss was taken
+    """
     # plot mjj bump histograms
     plt.figure(figsize=(6,4.4))
     bins = np.linspace(1000, 6000, 51)
@@ -50,27 +75,41 @@ def make_graph(all_mass, outlier_mass, bb, cut):
     else:
         plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
 
-# loop through dataset to extract useful information
-def process(data_loader, num_events):
+def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
+    """
+    Use the specified model to determine the reconstruction loss of each sample.
+    Also calculate the invariant mass of the jets.
+
+    Args:
+        data_loader (torch.data.DataLoader): pytorch dataloader for loading in black boxes
+        num_events (int): how many events we're processing
+
+    Returns: torch.tensor of size (num_events, 5).
+             column-wise: [jet1_loss, jet2_loss, dijet_invariant_mass, jet1_mass, jet2_mass]
+             Row-wise: dijet of event
+        
+    """
     # load model for loss calculation
     model = models.EdgeNet() # default to edgeconv network
-    if model_num == 2: # use metalayer gnn instead
+    if model_num == 1: # use metalayer gnn instead
         model = models.GNNAutoEncoder()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     model.load_state_dict(torch.load(modpath))
     model.eval()
     loss_ftn = MSELoss(reduction='mean')
-    if use_sparseloss == True: # use sparseloss function instead of default mse
+    # use sparseloss function instead of default mse
+    if use_sparseloss == True:
         loss_ftn = sparseloss3d
 
-    # colms: e_1, px_1, py_1, pz_1, e2, px_2, py_2, pz_2, loss_1, loss_2
-    # indices: 0, 1,  , 2   , 3   , 4 , 5   , 6   , 7   , 8     , 9
+    # Store the return values
     jet_data = torch.zeros((num_events, 5), dtype=torch.float32)
-    event = -1
+    event = -1 # event counter
+
+    # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
     with torch.no_grad():
-        for k, data in enumerate(data_loader): # go through all 10k data lists
+        for k, data in enumerate(data_loader):
             data = data[0] # remove extra brackets
-            for i in range(0,len(data) - 1):    # traverse list
+            for i in range(0,len(data) - 1): # traverse list of data objects
                 event += 1
                 if (event)%1000==0: print ('processing event %i'% event)
                 # check that they are from the same event
@@ -82,7 +121,7 @@ def process(data_loader, num_events):
                     event -= 1
                     continue                    
                 # run inference on both jets at the same time
-                if use_sparseloss == True: # for no padding model
+                if use_sparseloss == True:
                     jet_0 = data[i]
                     jet_1 = data[i + 1]
                     jet_x_0 = jet_0.x
@@ -120,11 +159,17 @@ def process(data_loader, num_events):
                                                jet1_u[2]])              # mass of jet 2
                     jet_data[event,:] = jet_losses
                 
-                
-    return jet_data[:event] # cut off extra zeros if any
+    return jet_data[:event] # cut off extra rows if any before returning
 
-# Integrate all parts
-def bump_hunt(num_events):
+
+def bump_hunt(num_events, model_fname, model_num, use_sparseloss):
+    """
+    Loads in black box 1 and 2, delegates to process() to determine invariant mass and loss per jet,
+    then makes cuts on the loss and passes info to make_graph() to create bump hunt graphs on mass.
+
+    Args:
+        num_events (int): How many collision events to read in and process (1 million max)
+    """
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
     torch.manual_seed(0)
@@ -132,10 +177,10 @@ def bump_hunt(num_events):
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
-    print("done processing bb1")
     bb1_loader = DataListLoader(bb1)
-    jet_losses = process(bb1_loader, num_events) # colms: [jet1_loss, jet2_loss]
+    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
+    # generate a graph for different cuts
     for cut in cuts:
         loss_thresh = np.quantile(losses, cut)
         d = {'loss1': jet_losses[:,0],
@@ -152,14 +197,15 @@ def bump_hunt(num_events):
         # get the mass of only outliers
         outlier_dijet_mass = outliers['dijet_mass']
         # make graph
-        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb1', cut)
+        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb1', cut, model_fname)
     
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
-    jet_losses = process(bb2_loader, num_events) # colms: [jet1_loss, jet2_loss]
+    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
+    # generate a graph for different cuts
     for cut in cuts:
         loss_thresh = np.quantile(losses, cut)
         d = {'loss1': jet_losses[:,0],
@@ -176,24 +222,35 @@ def bump_hunt(num_events):
         # get the mass of only outliers
         outlier_dijet_mass = outliers['dijet_mass']
         # make graph
-        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb2', cut)
+        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb2', cut, model_fname)
 
     
 if __name__ == "__main__":
+    # process arguments
     import argparse
     parser = argparse.ArgumentParser()
-    print("Model name options:")
-    print([osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')])
+    print("model_name options:")
+    saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
+    print(saved_models)
     parser.add_argument("--model_name", type=str, help="saved model name discluding file extension", required=True)
-    parser.add_argument("--model_num", type=int, help="1 = EdgeConv, 2 = MetaLayer", required=True)
+    parser.add_argument("--model_num", type=int, help="0 = EdgeConv, 1 = MetaLayer", required=True)
     parser.add_argument("--use_sparseloss", type=int, help="Toggle use of sparseloss (0: False, 1: True)", required=True)
     parser.add_argument("--num_events", type=int, help="how many events to process (multiple of 100)", required=True)
     args = parser.parse_args()
-    
-    use_sparseloss = [False, True][args.use_sparseloss]
-    model_num = args.model_num
+
+    # validate arguments
+    if args.num_events <= 0 or args.num_events > 1000000:
+        exit("--num_events must be in range (0, 1000000]")
+    if args.model_num not in [0, 1]:
+        exit("--model_num can only be 0 (EdgeNet) or 1 (MetaLayer)")
+    if args.model_name not in saved_models:
+        exit("--model_name does not exist. Valid names are:\n" + str(saved_models))
+    if args.use_sparseloss not in [0, 1]:
+        exit("--use_sparseloss can only be 0 (for False) or 1 (True)")
+
     model_fname = args.model_name
-    if model_num > 0 and model_num <= 3:
-        bump_hunt(args.num_events)
-    else:
-        print("Invalid model_num. Can only be 1 (EdgeNet) or 2 (MetaLayer)")
+    model_num = args.model_num
+    use_sparseloss = [False, True][args.use_sparseloss]
+    num_events = args.num_events
+
+    bump_hunt(num_events, model_fname, model_num, use_sparseloss)
