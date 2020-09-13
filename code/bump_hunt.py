@@ -56,7 +56,7 @@ def make_graph(all_mass, outlier_mass, bb, cut, model_fname):
     Args:
         all_mass (tensor): dijet inv mass of all events
         outlier_mass (tensor): dijet inv mass of outlier events
-        bb (int): which black box
+        bb (str): which black box
         cut (float): the percent where the cut on the loss was taken
         model_fname (str): name of saved model
     """
@@ -72,9 +72,9 @@ def make_graph(all_mass, outlier_mass, bb, cut, model_fname):
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
     if use_sparseloss == True:
-        plt.savefig('/anomalyvol/figures/' + model_fname + '_withsparseloss_bump_' + bb + '_' + str(cut) + '.pdf')
+        plt.savefig('/anomalyvol/figures/DELETE' + model_fname + '_withsparseloss_bump_' + bb + '_' + str(cut) + '.pdf')
     else:
-        plt.savefig('/anomalyvol/figures/' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
+        plt.savefig('/anomalyvol/figures/DELETE' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
 
 def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
     """
@@ -166,26 +166,17 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
     return jet_data[:event] # cut off extra rows if any before returning
 
 
-def bump_hunt(num_events, model_fname, model_num, use_sparseloss):
+def bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, bb):
     """
-    Loads in black box 1 and 2, delegates to process() to determine invariant mass and loss per jet,
-    then makes cuts on the loss and passes info to make_graph() to create bump hunt graphs on mass.
+    Loops and makes multiple cuts on the jet losses, and generates a graph for each cut by
+    delegating to make_graph().
 
     Args:
-        num_events (int): How many collision events to read in and process (1 million max)
+        jet_losses (torch.tensor): output of process(); has loss and mass of jets per event
         model_fname (str): name of saved model
         model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
         use_sparseloss (bool): toggle for using sparseloss instead of mse
     """
-    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
-    ignore_files = 10000 - num_files
-    torch.manual_seed(0)
-    
-    print("Plotting bb1")
-    bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
-    bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
-    bb1_loader = DataListLoader(bb1)
-    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
     losses = jet_losses[:,:2].flatten().numpy()
     # generate a graph for different cuts
     for cut in cuts:
@@ -197,39 +188,14 @@ def bump_hunt(num_events, model_fname, model_num, use_sparseloss):
              'mass2': jet_losses[:,4]}
         df = pd.DataFrame(d)
         all_dijet_mass = df['dijet_mass']
-        # id outliers
         df['outlier'] = 0
+        # outlier dijet if either jet is an outlier
         df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
         outliers = df.loc[df.outlier == 1]
         # get the mass of only outliers
         outlier_dijet_mass = outliers['dijet_mass']
         # make graph
-        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb1', cut, model_fname)
-    
-    print("Plotting bb2")
-    bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
-    bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
-    bb2_loader = DataListLoader(bb2)
-    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
-    losses = jet_losses[:,:2].flatten().numpy()
-    # generate a graph for different cuts
-    for cut in cuts:
-        loss_thresh = np.quantile(losses, cut)
-        d = {'loss1': jet_losses[:,0],
-             'loss2': jet_losses[:,1],
-             'dijet_mass': jet_losses[:,2],
-             'mass1': jet_losses[:,3],
-             'mass2': jet_losses[:,4]}
-        df = pd.DataFrame(d)
-        all_dijet_mass = df['dijet_mass']
-        # id outliers
-        df['outlier'] = 0
-        df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
-        outliers = df.loc[df.outlier == 1]
-        # get the mass of only outliers
-        outlier_dijet_mass = outliers['dijet_mass']
-        # make graph
-        make_graph(all_dijet_mass, outlier_dijet_mass, 'bb2', cut, model_fname)
+        make_graph(all_dijet_mass, outlier_dijet_mass, bb, cut, model_fname)
 
     
 if __name__ == "__main__":
@@ -260,4 +226,20 @@ if __name__ == "__main__":
     use_sparseloss = [False, True][args.use_sparseloss]
     num_events = args.num_events
 
-    bump_hunt(num_events, model_fname, model_num, use_sparseloss)
+    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
+    ignore_files = 10000 - num_files
+    torch.manual_seed(0) # consistency for random_split
+    
+    print("Plotting bb1")
+    bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
+    bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
+    bb1_loader = DataListLoader(bb1)
+    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
+    bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, 'bb1')
+
+    print("Plotting bb2")
+    bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
+    bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
+    bb2_loader = DataListLoader(bb2)
+    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
+    bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, 'bb2')
