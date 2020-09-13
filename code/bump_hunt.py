@@ -58,6 +58,7 @@ def make_graph(all_mass, outlier_mass, bb, cut, model_fname):
         outlier_mass (tensor): dijet inv mass of outlier events
         bb (int): which black box
         cut (float): the percent where the cut on the loss was taken
+        model_fname (str): name of saved model
     """
     # plot mjj bump histograms
     plt.figure(figsize=(6,4.4))
@@ -83,6 +84,9 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
     Args:
         data_loader (torch.data.DataLoader): pytorch dataloader for loading in black boxes
         num_events (int): how many events we're processing
+        model_fname (str): name of saved model
+        model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
+        use_sparseloss (bool): toggle for using sparseloss instead of mse
 
     Returns: torch.tensor of size (num_events, 5).
              column-wise: [jet1_loss, jet2_loss, dijet_invariant_mass, jet1_mass, jet2_mass]
@@ -169,6 +173,9 @@ def bump_hunt(num_events, model_fname, model_num, use_sparseloss):
 
     Args:
         num_events (int): How many collision events to read in and process (1 million max)
+        model_fname (str): name of saved model
+        model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
+        use_sparseloss (bool): toggle for using sparseloss instead of mse
     """
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
