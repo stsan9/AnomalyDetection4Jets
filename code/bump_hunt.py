@@ -49,32 +49,31 @@ def sparseloss3d(x,y):
     loss = torch.sum(in_dist_out.values + out_dist_in.values) / num_parts
     return loss
 
-def make_graph(all_mass, outlier_mass, bb, cut, model_fname):
+def make_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     """
     Create matplotlib graphs, overlaying histograms of invariant mass for outliers and all events.
 
     Args:
-        all_mass (tensor): dijet inv mass of all events
-        outlier_mass (tensor): dijet inv mass of outlier events
-        bb (str): which black box
-        cut (float): the percent where the cut on the loss was taken
-        model_fname (str): name of saved model
+        all_mass (tensor): inv mass of jets from all event
+        outlier_mass (tensor): inv mass from outlier events
+        x_lab (str): x axis label for graph
+        save_name (str): what name to save graph pdf as
+        bins (np.linspace): the bins for the histogram
     """
     # plot mjj bump histograms
     plt.figure(figsize=(6,4.4))
-    bins = np.linspace(1000, 6000, 51)
     weights = np.ones_like(outlier_mass) / len(outlier_mass)
     plt.hist(outlier_mass, alpha = 0.5, bins=bins, weights=weights, label='Outlier events')
     weights = np.ones_like(all_mass) / len(all_mass)
     plt.hist(all_mass, alpha = 0.5, bins=bins, weights=weights, label='All events')
     plt.legend()
-    plt.xlabel('$m_{jj}$ [GeV]', fontsize=16)
+    plt.xlabel(x_lab, fontsize=16)
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
     if use_sparseloss == True:
-        plt.savefig('/anomalyvol/figures/DELETE' + model_fname + '_withsparseloss_bump_' + bb + '_' + str(cut) + '.pdf')
+        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
     else:
-        plt.savefig('/anomalyvol/figures/DELETE' + model_fname + '_bump_' + bb + '_' + str(cut) + '.pdf')
+        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
 
 def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
     """
@@ -176,6 +175,7 @@ def bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, bb):
         model_fname (str): name of saved model
         model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
         use_sparseloss (bool): toggle for using sparseloss instead of mse
+        bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
     losses = jet_losses[:,:2].flatten().numpy()
     # generate a graph for different cuts
@@ -192,10 +192,39 @@ def bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, bb):
         # outlier dijet if either jet is an outlier
         df.loc[(df['loss1'] > loss_thresh) | (df['loss2'] > loss_thresh), 'outlier'] = 1
         outliers = df.loc[df.outlier == 1]
-        # get the mass of only outliers
-        outlier_dijet_mass = outliers['dijet_mass']
-        # make graph
-        make_graph(all_dijet_mass, outlier_dijet_mass, bb, cut, model_fname)
+
+        # name for files when saved
+        dijet_graph_name = ""
+        mj1_graph_name = ""
+        mj2_graph_name = ""
+        if use_sparseloss == True:
+            dijet_graph_name = model_fname + '_withsparseloss_dijet_bump_' + bb + '_' + str(cut) + '.pdf'
+            mj1_graph_name = model_fname + '_withsparseloss_mj1_bump_' + bb + '_' + str(cut) + '.pdf'
+            mj2_graph_name = model_fname + '_withsparseloss_mj2_bump_' + bb + '_' + str(cut) + '.pdf'
+        else:
+            dijet_graph_name = model_fname + 'dijet_bump_' + bb + '_' + str(cut) + '.pdf'
+            mj1_graph_name = model_fname + 'mj1_bump_' + bb + '_' + str(cut) + '.pdf'
+            mj2_graph_name = model_fname + 'mj2_bump_' + bb + '_' + str(cut) + '.pdf'
+
+        # make dijet bump hunt graph
+        outlier_dijet_mass = outliers['dijet_mass'] # get the mass of only outliers
+        x_lab = '$m_{jj}$ [GeV]'
+        bins = np.linspace(1000, 6000, 51)
+        make_graph(all_dijet_mass, outlier_dijet_mass, x_lab, dijet_graph_name, bins)
+
+        # make graph for mj1
+        all_m1_mass = df['mass1']
+        outlier_m1_mass = outliers['mass1']
+        x_lab = '$m_{j1}$ [GeV]'
+        bins = np.linspace(0, 3000, 51)
+        make_graph(all_m1_mass, outlier_m1_mass, x_lab, mj1_graph_name, bins)
+
+        # make graph for mj2
+        all_m2_mass = df['mass2']
+        outlier_m2_mass = outliers['mass2']
+        x_lab = '$m_{j2}$ [GeV]'
+        bins = np.linspace(0, 3000, 51)
+        make_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
 
     
 if __name__ == "__main__":
