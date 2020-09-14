@@ -13,8 +13,6 @@ from torch.nn import MSELoss
 import numpy as np
 import pandas as pd
 
-cuts = [0.97, 0.99, 0.997, 0.999]  # loss thresholds percentiles
-
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
         Calculates the invariant mass between 2 jets. Based on the formula:
@@ -71,9 +69,10 @@ def make_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
     if use_sparseloss == True:
-        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+        plt.savefig('/anomalyvol/figures/DELETE' + save_name + '.pdf')
     else:
-        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+        plt.savefig('/anomalyvol/figures/DELETE' + save_name + '.pdf')
+    plt.close()
 
 def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
     """
@@ -165,13 +164,14 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
     return jet_data[:event] # cut off extra rows if any before returning
 
 
-def bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, bb):
+def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
     """
     Loops and makes multiple cuts on the jet losses, and generates a graph for each cut by
     delegating to make_graph().
 
     Args:
         jet_losses (torch.tensor): output of process(); has loss and mass of jets per event
+        cuts (list of floats): all the percentages to perform a cut on the loss
         model_fname (str): name of saved model
         model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
         use_sparseloss (bool): toggle for using sparseloss instead of mse
@@ -202,9 +202,9 @@ def bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, bb):
             mj1_graph_name = model_fname + '_withsparseloss_mj1_bump_' + bb + '_' + str(cut) + '.pdf'
             mj2_graph_name = model_fname + '_withsparseloss_mj2_bump_' + bb + '_' + str(cut) + '.pdf'
         else:
-            dijet_graph_name = model_fname + 'dijet_bump_' + bb + '_' + str(cut) + '.pdf'
-            mj1_graph_name = model_fname + 'mj1_bump_' + bb + '_' + str(cut) + '.pdf'
-            mj2_graph_name = model_fname + 'mj2_bump_' + bb + '_' + str(cut) + '.pdf'
+            dijet_graph_name = model_fname + '_dijet_bump_' + bb + '_' + str(cut) + '.pdf'
+            mj1_graph_name = model_fname + '_mj1_bump_' + bb + '_' + str(cut) + '.pdf'
+            mj2_graph_name = model_fname + '_mj2_bump_' + bb + '_' + str(cut) + '.pdf'
 
         # make dijet bump hunt graph
         outlier_dijet_mass = outliers['dijet_mass'] # get the mass of only outliers
@@ -216,14 +216,14 @@ def bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, bb):
         all_m1_mass = df['mass1']
         outlier_m1_mass = outliers['mass1']
         x_lab = '$m_{j1}$ [GeV]'
-        bins = np.linspace(0, 3000, 51)
+        bins = np.linspace(0, 1800, 51)
         make_graph(all_m1_mass, outlier_m1_mass, x_lab, mj1_graph_name, bins)
 
         # make graph for mj2
         all_m2_mass = df['mass2']
         outlier_m2_mass = outliers['mass2']
         x_lab = '$m_{j2}$ [GeV]'
-        bins = np.linspace(0, 3000, 51)
+        bins = np.linspace(0, 1800, 51)
         make_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
 
     
@@ -234,10 +234,12 @@ if __name__ == "__main__":
     print("model_name options:")
     saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
     print(saved_models)
-    parser.add_argument("--model_name", type=str, help="saved model name discluding file extension", required=True)
+    parser.add_argument("--model_name", type=str, help="Saved model name discluding file extension.", required=True)
     parser.add_argument("--model_num", type=int, help="0 = EdgeConv, 1 = MetaLayer", required=True)
-    parser.add_argument("--use_sparseloss", type=int, help="Toggle use of sparseloss (0: False, 1: True)", required=True)
-    parser.add_argument("--num_events", type=int, help="how many events to process (multiple of 100)", required=True)
+    parser.add_argument("--use_sparseloss", type=int, help="Toggle use of sparseloss (0: False, 1: True). Default 0.", default=0, required=False)
+    parser.add_argument("--num_events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
+    parser.add_argument("--cuts", nargs='+', type=float, default=[0.97, 0.99, 0.997, 0.999],
+                        help="All the cuts to use. Float in range (0, 1). Example: --cuts 0.97 0.99 0.995", required=False)
     args = parser.parse_args()
 
     # validate arguments
@@ -249,11 +251,13 @@ if __name__ == "__main__":
         exit("--model_name does not exist. Valid names are:\n" + str(saved_models))
     if args.use_sparseloss not in [0, 1]:
         exit("--use_sparseloss can only be 0 (for False) or 1 (True)")
-
+    if any(c <= 0. or c >= 1. for c in args.cuts):
+        exit("--cuts must be in range (0, 1)")
     model_fname = args.model_name
     model_num = args.model_num
     use_sparseloss = [False, True][args.use_sparseloss]
     num_events = args.num_events
+    cuts = args.cuts
 
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
@@ -264,11 +268,11 @@ if __name__ == "__main__":
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     bb1_loader = DataListLoader(bb1)
     jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
-    bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, 'bb1')
+    bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb1')
 
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
     jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
-    bump_hunt(jet_losses, model_fname, model_num, use_sparseloss, 'bb2')
+    bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb2')
