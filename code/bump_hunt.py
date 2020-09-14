@@ -12,6 +12,7 @@ from torch.utils.data import random_split
 from torch.nn import MSELoss
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
@@ -69,9 +70,9 @@ def make_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
     if use_sparseloss == True:
-        plt.savefig('/anomalyvol/figures/DELETE' + save_name + '.pdf')
+        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
     else:
-        plt.savefig('/anomalyvol/figures/DELETE' + save_name + '.pdf')
+        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
     plt.close()
 
 def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
@@ -198,13 +199,13 @@ def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
         mj1_graph_name = ""
         mj2_graph_name = ""
         if use_sparseloss == True:
-            dijet_graph_name = model_fname + '_withsparseloss_dijet_bump_' + bb + '_' + str(cut) + '.pdf'
-            mj1_graph_name = model_fname + '_withsparseloss_mj1_bump_' + bb + '_' + str(cut) + '.pdf'
-            mj2_graph_name = model_fname + '_withsparseloss_mj2_bump_' + bb + '_' + str(cut) + '.pdf'
+            dijet_graph_name = model_fname + '/' + model_fname + '_withsparseloss_dijet_bump_' + bb + '_' + str(cut)
+            mj1_graph_name = model_fname + '/' + model_fname + '_withsparseloss_mj1_bump_' + bb + '_' + str(cut)
+            mj2_graph_name = model_fname + '/' + model_fname + '_withsparseloss_mj2_bump_' + bb + '_' + str(cut)
         else:
-            dijet_graph_name = model_fname + '_dijet_bump_' + bb + '_' + str(cut) + '.pdf'
-            mj1_graph_name = model_fname + '_mj1_bump_' + bb + '_' + str(cut) + '.pdf'
-            mj2_graph_name = model_fname + '_mj2_bump_' + bb + '_' + str(cut) + '.pdf'
+            dijet_graph_name = model_fname + '/' + model_fname + '_dijet_bump_' + bb + '_' + str(cut)
+            mj1_graph_name = model_fname + '/' + model_fname + '_mj1_bump_' + bb + '_' + str(cut)
+            mj2_graph_name = model_fname + '/' + model_fname + '_mj2_bump_' + bb + '_' + str(cut)
 
         # make dijet bump hunt graph
         outlier_dijet_mass = outliers['dijet_mass'] # get the mass of only outliers
@@ -262,6 +263,7 @@ if __name__ == "__main__":
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
     torch.manual_seed(0) # consistency for random_split
+    Path('/anomalyvol/figures/' + model_fname).mkdir(exist_ok=True) # make a folder for the graphs of this model
     
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
