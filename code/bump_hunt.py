@@ -260,13 +260,13 @@ if __name__ == "__main__":
     num_events = args.num_events
     cuts = args.cuts
 
-    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
-    ignore_files = 10000 - num_files
-    torch.manual_seed(0) # consistency for random_split
     Path('/anomalyvol/figures/' + model_fname).mkdir(exist_ok=True) # make a folder for the graphs of this model
     
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
+    torch.manual_seed(0) # consistency for random_split
+    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
+    ignore_files = 10000 - num_files
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     bb1_loader = DataListLoader(bb1)
     jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
