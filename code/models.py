@@ -116,7 +116,7 @@ class GNNAutoEncoder(torch.nn.Module):
         self.encoder = MetaLayer(EdgeEncoder(), NodeEncoder(), GlobalEncoder())
         self.decoder = MetaLayer(EdgeDecoder(), NodeDecoder(), None)
     
-    def forward(self, x, edge_index, batch):
-        x, edge_attr, u = self.encoder(x, edge_index, None, None, batch)
-        x, edge_attr, u = self.decoder(x, edge_index, None, u, batch)
+    def forward(self, data):
+        x, edge_attr, u = self.encoder(data.x, data.edge_index, None, None, data.batch)
+        x, edge_attr, u = self.decoder(x, data.edge_index, None, u, data.batch)
         return x
