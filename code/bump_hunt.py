@@ -48,7 +48,7 @@ def sparseloss3d(x,y):
     loss = torch.sum(in_dist_out.values + out_dist_in.values) / num_parts
     return loss
 
-def make_graph(all_mass, outlier_mass, x_lab, save_name, bins):
+def make_bump_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     """
     Create matplotlib graphs, overlaying histograms of invariant mass for outliers and all events.
 
@@ -69,10 +69,15 @@ def make_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     plt.xlabel(x_lab, fontsize=16)
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
-    if use_sparseloss == True:
-        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
-    else:
-        plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+    plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+    plt.close()
+
+def make_loss_graph(losses, save_name):
+    plt.figure(figsize=(6,4.4))
+    plt.hist(losses,bins=np.linspace(0, 600, 101))
+    plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+    plt.xlabel('Loss', fontsize=16)
+    plt.ylabel('Jets', fontsize=16)
     plt.close()
 
 def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
@@ -168,7 +173,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
 def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
     """
     Loops and makes multiple cuts on the jet losses, and generates a graph for each cut by
-    delegating to make_graph().
+    delegating to make_bump_graph().
 
     Args:
         jet_losses (torch.tensor): output of process(); has loss and mass of jets per event
@@ -179,6 +184,8 @@ def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
         bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
     losses = jet_losses[:,:2].flatten().numpy()
+    loss_graph_name = model_fname + '_sparseloss' if use_sparseloss == True else model_fname
+    make_loss_graph(losses, model_fname + '/' + loss_graph_name + '_loss_distribution_' + bb)
     # generate a graph for different cuts
     for cut in cuts:
         loss_thresh = np.quantile(losses, cut)
@@ -211,21 +218,21 @@ def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
         outlier_dijet_mass = outliers['dijet_mass'] # get the mass of only outliers
         x_lab = '$m_{jj}$ [GeV]'
         bins = np.linspace(1000, 6000, 51)
-        make_graph(all_dijet_mass, outlier_dijet_mass, x_lab, dijet_graph_name, bins)
+        make_bump_graph(all_dijet_mass, outlier_dijet_mass, x_lab, dijet_graph_name, bins)
 
         # make graph for mj1
         all_m1_mass = df['mass1']
         outlier_m1_mass = outliers['mass1']
         x_lab = '$m_{j1}$ [GeV]'
         bins = np.linspace(0, 1800, 51)
-        make_graph(all_m1_mass, outlier_m1_mass, x_lab, mj1_graph_name, bins)
+        make_bump_graph(all_m1_mass, outlier_m1_mass, x_lab, mj1_graph_name, bins)
 
         # make graph for mj2
         all_m2_mass = df['mass2']
         outlier_m2_mass = outliers['mass2']
         x_lab = '$m_{j2}$ [GeV]'
         bins = np.linspace(0, 1800, 51)
-        make_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
+        make_bump_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
 
     
 if __name__ == "__main__":
@@ -269,12 +276,12 @@ if __name__ == "__main__":
     ignore_files = 10000 - num_files
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     bb1_loader = DataListLoader(bb1)
-    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
+    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb1')
 
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
-    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss) # colms: [jet1_loss, jet2_loss]
+    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss)
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb2')
