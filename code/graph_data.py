@@ -198,7 +198,7 @@ class GraphDataset(Dataset):
 
         print('Processing...')
 
-        Path(self.processed_dir, exist_ok=True)
+        Path(self.processed_dir).mkdir(exist_ok=True)
         self.process()
 
         path = osp.join(self.processed_dir, 'pre_transform.pt')
