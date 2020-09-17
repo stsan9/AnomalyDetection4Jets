@@ -8,6 +8,7 @@ import pandas as pd
 from pyjet import cluster,DTYPE_PTEPM
 import glob
 import multiprocessing
+import pathlib as Path
 
 def process_func(args):
     self, raw_path, k = args
@@ -197,7 +198,7 @@ class GraphDataset(Dataset):
 
         print('Processing...')
 
-        makedirs(self.processed_dir)
+        Path(self.processed_dir, exist_ok=True)
         self.process()
 
         path = osp.join(self.processed_dir, 'pre_transform.pt')
