@@ -38,7 +38,6 @@ class EdgeNet(nn.Module):
         data.x = self.decoder(data.x,data.edge_index)
         return data.x
 
-    
 # GNN Meta Layer components
 class EdgeEncoder(torch.nn.Module):
     def __init__(self):
