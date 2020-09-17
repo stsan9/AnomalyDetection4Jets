@@ -8,7 +8,7 @@ import pandas as pd
 from pyjet import cluster,DTYPE_PTEPM
 import glob
 import multiprocessing
-import pathlib as Path
+from pathlib import Path
 
 def process_func(args):
     self, raw_path, k = args
