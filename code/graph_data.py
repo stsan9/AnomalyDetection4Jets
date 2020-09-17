@@ -221,4 +221,4 @@ if __name__ == "__main__":
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
                          n_events=args.n_events, n_particles=args.n_particles,
-                         n_events_merge=args.n_events_merge)
+                         n_events_merge=args.n_events_merge, leading_pair_only=args.leading_pair_only)
