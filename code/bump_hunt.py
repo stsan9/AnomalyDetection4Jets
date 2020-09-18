@@ -80,7 +80,7 @@ def make_loss_graph(losses, save_name):
     plt.ylabel('Jets', fontsize=16)
     plt.close()
 
-def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
+def process(data_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim):
     """
     Use the specified model to determine the reconstruction loss of each sample.
     Also calculate the invariant mass of the jets.
@@ -98,7 +98,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss):
         
     """
     # load model for loss calculation
-    model = models.EdgeNet() # default to edgeconv network
+    model = models.EdgeNet(hidden_dim=latent_dim) # default to edgeconv network
     if model_num == 1: # use metalayer gnn instead
         model = models.GNNAutoEncoder()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
@@ -248,6 +248,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
     parser.add_argument("--cuts", nargs='+', type=float, default=[0.97, 0.99, 0.997, 0.999],
                         help="All the cuts to use. Float in range (0, 1). Example: --cuts 0.97 0.99 0.995", required=False)
+    parser.add_argument("--latent_dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
     args = parser.parse_args()
 
     # validate arguments
@@ -261,11 +262,14 @@ if __name__ == "__main__":
         exit("--use_sparseloss can only be 0 (for False) or 1 (True)")
     if any(c <= 0. or c >= 1. for c in args.cuts):
         exit("--cuts must be in range (0, 1)")
+    if latent_dim <= 0:
+        exit("--latent_dim must be greater than 0")
     model_fname = args.model_name
     model_num = args.model_num
     use_sparseloss = [False, True][args.use_sparseloss]
     num_events = args.num_events
     cuts = args.cuts
+    latent_dim = args.latent_dim
 
     Path('/anomalyvol/figures/' + model_fname).mkdir(exist_ok=True) # make a folder for the graphs of this model
     
@@ -276,12 +280,12 @@ if __name__ == "__main__":
     ignore_files = 10000 - num_files
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     bb1_loader = DataListLoader(bb1)
-    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb1')
 
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
-    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss)
+    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb2')
