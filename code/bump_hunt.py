@@ -262,7 +262,7 @@ if __name__ == "__main__":
         exit("--use_sparseloss can only be 0 (for False) or 1 (True)")
     if any(c <= 0. or c >= 1. for c in args.cuts):
         exit("--cuts must be in range (0, 1)")
-    if latent_dim <= 0:
+    if args.latent_dim <= 0:
         exit("--latent_dim must be greater than 0")
     model_fname = args.model_name
     model_num = args.model_num
