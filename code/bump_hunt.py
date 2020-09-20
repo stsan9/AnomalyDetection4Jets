@@ -274,7 +274,7 @@ if __name__ == "__main__":
     Path('/anomalyvol/figures/' + model_fname).mkdir(exist_ok=True) # make a folder for the graphs of this model
     
     print("Plotting bb0")
-    bb0 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb0/', bb=0)
+    bb0 = GraphDataset('/anomalyvol/data/lead_2/bb0/', bb=0)
     torch.manual_seed(0) # consistency for random_split
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb0')
 
     print("Plotting bb1")
-    bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
+    bb1 = GraphDataset('/anomalyvol/data/lead_2/bb1/', bb=1)
     torch.manual_seed(0) # consistency for random_split
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb1')
 
     print("Plotting bb2")
-    bb2 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb2/', bb=2)
+    bb2 = GraphDataset('/anomalyvol/data/lead_2/bb2/', bb=2)
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
     jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
