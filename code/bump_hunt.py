@@ -110,7 +110,10 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
         loss_ftn = sparseloss3d
 
     # Store the return values
-    jet_data = torch.zeros((num_events, 5), dtype=torch.float32)
+    max_feat = 4
+    jets_loss_mass = torch.zeros((num_events, 5), dtype=torch.float32)
+    input_fts = []
+    reco_fts = []
     event = -1 # event counter
 
     # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
@@ -120,6 +123,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             for i in range(0,len(data) - 1): # traverse list of data objects
                 event += 1
                 if (event)%1000==0: print ('processing event %i'% event)
+
                 # check that they are from the same event
                 if i<len(data)-1 and data[i].u[0][0].item() != data[i+1].u[0][0].item():
                     event -= 1
@@ -127,7 +131,8 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
                 # and that's not a 2nd+3rd jet:
                 if i>0 and data[i-1].u[0][0].item() == data[i].u[0][0].item():
                     event -= 1
-                    continue                    
+                    continue
+
                 # run inference on both jets at the same time
                 if use_sparseloss == True:
                     jet_0 = data[i]
@@ -146,7 +151,11 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
                                                dijet_mass,              # mass of dijet
                                                jet0_u[2],               # mass of jet 1
                                                jet1_u[2]])              # mass of jet 2
-                    jet_data[event,:] = jet_losses
+                    jets_loss_mass[event,:] = jet_losses
+                    input_fts.append(jet_x_0)
+                    input_fts.append(jet_x_1)
+                    reco_fts.append(jet_rec_0)
+                    reco_fts.append(jet_rec_1)
                 else:
                     jets = Batch.from_data_list(data[i:i+2])
                     jets_x = jets.x
@@ -165,9 +174,14 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
                                                dijet_mass,              # mass of dijet
                                                jet0_u[2],               # mass of jet 1
                                                jet1_u[2]])              # mass of jet 2
-                    jet_data[event,:] = jet_losses
+                    jets_loss_mass[event,:] = jet_losses
+                    input_fts.append(jet_x_0)
+                    input_fts.append(jet_x_1)
+                    reco_fts.append(jet_rec_0)
+                    reco_fts.append(jet_rec_1)
                 
-    return jet_data[:event] # cut off extra rows if any before returning
+    # return pytorch tensors
+    return jets_loss_mass[:event], torch.cat(input_fts), torch.cat(reco_fts)
 
 
 def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
@@ -234,6 +248,10 @@ def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
         bins = np.linspace(0, 1800, 51)
         make_bump_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
 
+def plot_reco_difference(input_fts, reco_fts):
+    # fill in
+    pass
+
     
 if __name__ == "__main__":
     # process arguments
@@ -280,7 +298,7 @@ if __name__ == "__main__":
     ignore_files = 10000 - num_files
     bb0, ignore, ignore2 = random_split(bb0, [num_files, ignore_files, 0])
     bb0_loader = DataListLoader(bb0)
-    jet_losses = process(bb0_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+    jet_losses, input_fts, reco_fts = process(bb0_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb0')
 
     print("Plotting bb1")
@@ -290,12 +308,12 @@ if __name__ == "__main__":
     ignore_files = 10000 - num_files
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     bb1_loader = DataListLoader(bb1)
-    jet_losses = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+    jet_losses, input_fts, reco_fts = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb1')
 
     print("Plotting bb2")
     bb2 = GraphDataset('/anomalyvol/data/lead_2/bb2/', bb=2)
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
-    jet_losses = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
+    jet_losses, input_fts, reco_fts = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb2')
