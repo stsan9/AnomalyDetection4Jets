@@ -273,6 +273,16 @@ if __name__ == "__main__":
 
     Path('/anomalyvol/figures/' + model_fname).mkdir(exist_ok=True) # make a folder for the graphs of this model
     
+    print("Plotting bb0")
+    bb0 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb0/', bb=0)
+    torch.manual_seed(0) # consistency for random_split
+    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
+    ignore_files = 10000 - num_files
+    bb0, ignore, ignore2 = random_split(bb0, [num_files, ignore_files, 0])
+    bb0_loader = DataListLoader(bb0)
+    jet_losses = process(bb0_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+    bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb0')
+
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/gnn_node_global_merge/bb1/', bb=1)
     torch.manual_seed(0) # consistency for random_split
