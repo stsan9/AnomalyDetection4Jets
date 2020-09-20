@@ -248,9 +248,33 @@ def bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, bb):
         bins = np.linspace(0, 1800, 51)
         make_bump_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
 
-def plot_reco_difference(input_fts, reco_fts):
-    # fill in
-    pass
+def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
+    """
+    Plot the difference between the autoencoder's reconstruction and the original input
+
+    Args:
+        input_fts (torch.tensor): the original features of the particles
+        reco_fts (torch.tensor): the reconstructed features
+        model_fname (str): name of saved model
+        bb (str): which black box the input came from
+    """
+    Path('/anomalyvol/figures/' + model_fname + '/reconstruction').mkdir(exist_ok=True) # make a folder for these graphs
+    label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$', '$E~[GeV]$']
+    feat = ['px', 'py', 'pz' , 'E']
+
+    # make a separate plot for each feature
+    for i in range(len(input_fts.shape[1])):
+        plt.figure(figsize=(6,4.4))
+        bins = np.linspace(-20, 20, 101)
+        if i == 3:  # different bin size for E momentum
+            bins = np.linspace(-5, 35, 101)
+        plt.hist(input_fts[:,i], bins=bins, alpha=0.5, label='input')
+        plt.hist(reco_fts[:,i], bins=bins, alpha=0.5, label='output')
+        plt.legend()
+        plt.xlabel(label[i], fontsize=16)
+        plt.ylabel('Particles', fontsize=16)
+        plt.savefig('/anomalyvol/figures/' + model_fname  + '/reconstruction/' + feat[i] + '_' + bb + '.pdf')
+        plt.close()
 
     
 if __name__ == "__main__":
@@ -299,16 +323,15 @@ if __name__ == "__main__":
     bb0, ignore, ignore2 = random_split(bb0, [num_files, ignore_files, 0])
     bb0_loader = DataListLoader(bb0)
     jet_losses, input_fts, reco_fts = process(bb0_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
-    bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb0')
+    plot_reco_difference(input_fts, reco_fts, model_fname, 'bb0')  # plot reconstruction difference
+    bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb0')  # plot bump hunts
 
     print("Plotting bb1")
     bb1 = GraphDataset('/anomalyvol/data/lead_2/bb1/', bb=1)
-    torch.manual_seed(0) # consistency for random_split
-    num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
-    ignore_files = 10000 - num_files
     bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
     bb1_loader = DataListLoader(bb1)
-    jet_losses, input_fts, reco_fts = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+    jet_losses, input_fts, reco_fts = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
+    plot_reco_difference(input_fts, reco_fts, model_fname, 'bb1')
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb1')
 
     print("Plotting bb2")
@@ -316,4 +339,5 @@ if __name__ == "__main__":
     bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
     bb2_loader = DataListLoader(bb2)
     jet_losses, input_fts, reco_fts = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
+    plot_reco_difference(input_fts, reco_fts, model_fname, 'bb2')
     bump_hunt(jet_losses, cuts, model_fname, model_num, use_sparseloss, 'bb2')
