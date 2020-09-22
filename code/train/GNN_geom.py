@@ -7,36 +7,7 @@ from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 from torch.utils.data import random_split
 import os.path as osp
 from graph_data import GraphDataset
-
-# GNN AE
-class EdgeNet(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNet, self).__init__()
-        encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
-                               nn.ReLU(),
-                               nn.Linear(big_dim, big_dim),
-                               nn.ReLU(),
-                               nn.Linear(big_dim, hidden_dim),
-                               nn.ReLU(),
-        )
-        
-        decoder_nn = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
-                               nn.ReLU(),
-                               nn.Linear(big_dim, big_dim),
-                               nn.ReLU(),
-                               nn.Linear(big_dim, input_dim)
-        )
-        
-        self.batchnorm = nn.BatchNorm1d(input_dim)
-
-        self.encoder = EdgeConv(nn=encoder_nn,aggr=aggr)
-        self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
-
-    def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x,data.edge_index)
-        data.x = self.decoder(data.x,data.edge_index)
-        return data.x
+import models
 
 # darkflow loss function
 def sparseloss3d(x,y):
@@ -100,10 +71,11 @@ def train(model, optimizer, loader, total, batch_size, no_E = False, use_sparsel
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--hid_dim", type=int, help="latent space size", required=True)
-    parser.add_argument("--no_E", type=int, help="Toggle to remove energy from training and testing (0: False, 1: True)", required=True)
+    parser.add_argument("--lat_dim", type=int, help="latent space size", default=2, required=False)
+    parser.add_argument("--no_E", type=int, help="Toggle to remove energy from training and testing (0: False, 1: True)", default=0, required=False)
     parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
-    parser.add_argument("--use_sparseloss", type=int, help="Toggle to use sparseloss (0: False, 1: True)", required=True)
+    parser.add_argument("--use_sparseloss", type=int, help="Toggle to use sparseloss (0: False, 1: True)", default=0, required=False)
+    parser.add_argument("--use_metalayer", type=int, help="Toggle to use metalayer model; defaulted to edgenet (0: edgenet, 1: metalayer)", default=0, required=False)
     args = parser.parse_args()
     # data and specifications
     gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0)
@@ -111,7 +83,7 @@ if __name__ == "__main__":
     no_E = [False, True][args.no_E]
     input_dim = 3 if args.no_E else 4
     big_dim = 32
-    hidden_dim = args.hid_dim
+    hidden_dim = args.lat_dim
     fulllen = len(gdata)
     tv_frac = 0.10
     tv_num = math.ceil(fulllen*tv_frac)
@@ -122,7 +94,9 @@ if __name__ == "__main__":
     device = 'cuda:0'
     model_fname = args.mod_name
 
-    model = EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
+    model = models.EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
+    if args.use_metalayer:
+        model = models.GNNAutoencoder()
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 
     def collate(items): # collate function for data loaders (transforms list of lists to list)
