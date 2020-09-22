@@ -117,9 +117,6 @@ if __name__ == "__main__":
     valid_samples = len(valid_dataset)
     test_samples = len(test_dataset)
 
-    # create model
-    model = EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     # load in model
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     try:
