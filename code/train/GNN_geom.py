@@ -96,7 +96,7 @@ if __name__ == "__main__":
 
     model = models.EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     if args.use_metalayer:
-        model = models.GNNAutoencoder()
+        model = models.GNNAutoEncoder()
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 
     def collate(items): # collate function for data loaders (transforms list of lists to list)
