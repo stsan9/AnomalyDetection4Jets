@@ -87,7 +87,7 @@ if __name__ == "__main__":
     fulllen = len(gdata)
     tv_frac = 0.10
     tv_num = math.ceil(fulllen*tv_frac)
-    batch_size = 4
+    batch_size = 2
     n_epochs = 100
     lr = 0.001
     patience = 10
