@@ -76,9 +76,10 @@ if __name__ == "__main__":
     parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
     parser.add_argument("--use_sparseloss", type=int, help="Toggle to use sparseloss (0: False, 1: True)", default=0, required=False)
     parser.add_argument("--use_metalayer", type=int, help="Toggle to use metalayer model; defaulted to edgenet (0: edgenet, 1: metalayer)", default=0, required=False)
+    parser.add_argument("--rnd", type=int, help="1: Train with R&D set, 0: Train with QCD background; default 0", default=0, required=False)
     args = parser.parse_args()
     # data and specifications
-    gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0)
+    gdata = GraphDataset(root='/anomalyvol/data/rnd_set', bb=4) if args.rnd else GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0) 
     use_sparseloss = [False, True][args.use_sparseloss]
     no_E = [False, True][args.no_E]
     input_dim = 3 if args.no_E else 4
@@ -88,7 +89,7 @@ if __name__ == "__main__":
     tv_frac = 0.10
     tv_num = math.ceil(fulllen*tv_frac)
     batch_size = 2
-    n_epochs = 100
+    n_epochs = 200
     lr = 0.001
     patience = 10
     device = 'cuda:0'
