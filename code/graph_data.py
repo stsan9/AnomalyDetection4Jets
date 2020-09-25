@@ -8,6 +8,7 @@ import pandas as pd
 from pyjet import cluster,DTYPE_PTEPM
 import glob
 import multiprocessing
+from pathlib import Path
 
 def process_func(args):
     self, raw_path, k = args
@@ -39,7 +40,7 @@ class GraphDataset(Dataset):
     """
     def __init__(self, root, transform=None, pre_transform=None,
                  n_particles=-1, bb=0, n_events=-1, n_proc=1,
-                 n_events_merge=100):
+                 n_events_merge=100, leading_pair_only = 0):
         self.n_particles = n_particles
         self.bb = bb
         self.n_events = 1000000 if n_events==-1 else n_events
@@ -47,6 +48,7 @@ class GraphDataset(Dataset):
         self.n_proc = n_proc
         self.chunk_size = self.n_events // self.n_proc
         self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt']
+        self.leading_pair_only = True if leading_pair_only != 0 else False
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
 
@@ -90,10 +92,17 @@ class GraphDataset(Dataset):
                     pseudojets_input[j]['phi'] = all_events[i][j*3+2]
                 pass
 
-            # cluster jets from the particles in one observation
+            # cluster jets from the particles in one event
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
+            jet_num = 0
             for jet in jets: # for each jet get (px, py, pz, e)
+                # if setting true, only get leading 2 jets and skip events with less than 2 jets
+                if self.leading_pair_only:
+                    if len(jets) < 2:
+                        break
+                    elif jet_num > 1:
+                        break
                 if jet.pt < 200 or len(jet)<=1: continue
                 if self.n_particles > -1:
                     n_particles = self.n_particles
@@ -117,7 +126,6 @@ class GraphDataset(Dataset):
                     n_particles = min(len(jet),self.n_particles)
                 else:
                     n_particles = len(jet)
-                #print(event_idx, ijet, n_particles, jet.pt, len(jet), self.n_particles, particles.shape[0])
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
                 # save [deta, dphi] as edge attributes (may not be used depending on model)
                 #eta0s = particles[pairs[:,0],6]
@@ -132,7 +140,7 @@ class GraphDataset(Dataset):
                 edge_index=edge_index.t().contiguous()
                 # save [px, py, pz, e] of particles as node attributes and target
                 x = torch.tensor(particles[:,:4], dtype=torch.float)
-                #y = x
+                # y = x
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
                 u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
@@ -190,7 +198,7 @@ class GraphDataset(Dataset):
 
         print('Processing...')
 
-        makedirs(self.processed_dir)
+        Path(self.processed_dir).mkdir(exist_ok=True)
         self.process()
 
         path = osp.join(self.processed_dir, 'pre_transform.pt')
@@ -209,8 +217,9 @@ if __name__ == "__main__":
     parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
     parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background)")
     parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
+    parser.add_argument("--leading_pair_only", type=int, default=0, help="if we only want the leading 2 jets of each event (0: False, not 0: True)")
     args = parser.parse_args()
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
                          n_events=args.n_events, n_particles=args.n_particles,
-                         n_events_merge=args.n_events_merge)
+                         n_events_merge=args.n_events_merge, leading_pair_only=args.leading_pair_only)
