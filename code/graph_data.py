@@ -30,38 +30,47 @@ def __repr__(obj):
     return re.sub('(<.*?)\\s.*(>)', r'\1\2', obj.__repr__())
 
 class GraphDataset(Dataset):
-    """
-    @Params
-    root: path
-    n_particles: particles + padding for jet (default -1=no padding)
-    bb: dataset to read in (0=background)
-    n_events: how many events to process (-1=all)
-    n_events_merge: how many events to merge
-    """
     def __init__(self, root, transform=None, pre_transform=None,
                  n_particles=-1, bb=0, n_events=-1, n_proc=1,
                  n_events_merge=100, leading_pair_only = 0):
+        """
+        Initialize parameters of graph dataset
+        Args:
+            root (str): path
+            n_particles (int): particles + padding for jet (default -1=no padding)
+            bb (int): dataset to read in (0=background)
+            n_events (int): how many events to process (-1=all)
+            n_events_merge (int): how many events to merge
+            leading_pair_only (int): toggle to process only leading 2 jets / event
+        """
         self.n_particles = n_particles
         self.bb = bb
         self.n_events = 1000000 if n_events==-1 else n_events
         self.n_events_merge = n_events_merge
         self.n_proc = n_proc
         self.chunk_size = self.n_events // self.n_proc
-        self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt']
-        self.leading_pair_only = True if leading_pair_only != 0 else False
+        self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt', 'data_rnd_{}.pt']
+        self.leading_pair_only = leading_pair_only
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
 
     @property
     def raw_file_names(self):
+        """
+        Determines which file is being processed
+        """
         files = [['events_LHCO2020_backgroundMC_Pythia.h5'],
                  ['events_LHCO2020_BlackBox1.h5'],
                  ['events_LHCO2020_BlackBox2.h5'],
-                 ['events_LHCO2020_BlackBox3.h5']]
+                 ['events_LHCO2020_BlackBox3.h5'],
+                 ['events_anomalydetection.h5']]
         return files[self.bb]
 
     @property
     def processed_file_names(self):
+        """
+        Returns a list of all the files in the processed files directory
+        """
         proc_list = glob.glob(osp.join(self.processed_dir, 'data*.pt'))
         return_list = list(map(osp.basename, proc_list))
         return return_list
@@ -74,6 +83,13 @@ class GraphDataset(Dataset):
         pass
 
     def process_one_chunk(self, raw_path, k):
+        """
+        Handles conversion of dataset file at raw_path into graph dataset.
+
+        Args:
+            raw_path (str): The absolute path to the dataset file
+            k (int): Number of process (0,...,max_events // n_proc) to determine where to read file
+        """
         df = pd.read_hdf(raw_path, start = k * self.chunk_size, stop = (k + 1) * self.chunk_size)
         all_events = df.values
         rows = all_events.shape[0]
@@ -90,7 +106,6 @@ class GraphDataset(Dataset):
                     pseudojets_input[j]['pT'] = all_events[i][j*3]
                     pseudojets_input[j]['eta'] = all_events[i][j*3+1]
                     pseudojets_input[j]['phi'] = all_events[i][j*3+2]
-                pass
 
             # cluster jets from the particles in one event
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
@@ -136,6 +151,7 @@ class GraphDataset(Dataset):
                 #dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
                 #edge_attr = np.stack([detas,dphis],axis=1)
                 #edge_attr = torch.tensor(edge_attr, dtype=torch.float)
+                signal_bit = all_events[i][-1]
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
                 # save [px, py, pz, e] of particles as node attributes and target
@@ -143,7 +159,7 @@ class GraphDataset(Dataset):
                 # y = x
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
-                u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e], dtype=torch.float)
+                u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e, signal_bit], dtype=torch.float)
                 data = Data(x=x, edge_index=edge_index)#), y=y, edge_attr=edge_attr)
                 data.u = torch.unsqueeze(u, 0)
                 if self.pre_filter is not None and not self.pre_filter(data):
@@ -156,10 +172,13 @@ class GraphDataset(Dataset):
             if i%self.n_events_merge == self.n_events_merge-1:
                 datas = sum(datas,[])
                 #print(datas)
-                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e)
+                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e, signal_bit)
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
+        """
+        Split processing of dataset across multiple processes.
+        """
         print(len(self.processed_file_names))
         # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
@@ -178,6 +197,10 @@ class GraphDataset(Dataset):
         return data
     
     def _process(self):
+        """
+        Checks if we want to process the raw file into a dataset. If files 
+        already present skips processing.
+        """
         f = osp.join(self.processed_dir, 'pre_transform.pt')
         if osp.exists(f) and torch.load(f) != __repr__(self.pre_transform):
             logging.warning(
@@ -215,9 +238,9 @@ if __name__ == "__main__":
     parser.add_argument("--n-proc", type=int, default=1, help="number of concurrent processes")
     parser.add_argument("--n-events", type=int, default=-1, help="number of events (-1 means all)")
     parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
-    parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background)")
+    parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background, -1 is the mixed rnd set)")
     parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
-    parser.add_argument("--leading_pair_only", type=int, default=0, help="if we only want the leading 2 jets of each event (0: False, not 0: True)")
+    parser.add_argument("--leading-pair-only", type=int, default=0, help="if we only want the leading 2 jets of each event (0: False, not 0: True)")
     args = parser.parse_args()
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
