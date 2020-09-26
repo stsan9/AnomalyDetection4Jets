@@ -1,7 +1,7 @@
 """
 Generate graphs for bump hunting on invariant mass.
 """
-import glob
+1;95;0cimport glob
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import torch
@@ -71,13 +71,13 @@ def make_bump_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     plt.xlabel(x_lab, fontsize=16)
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
-    plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+    plt.savefig('/anomalyvol/figures2/' + save_name + '.pdf')
     plt.close()
 
 def make_loss_graph(losses, save_name):
     plt.figure(figsize=(6,4.4))
     plt.hist(losses,bins=np.linspace(0, 600, 101))
-    plt.savefig('/anomalyvol/figures/' + save_name + '.pdf')
+    plt.savefig('/anomalyvol/figures2/' + save_name + '.pdf')
     plt.xlabel('Loss', fontsize=16)
     plt.ylabel('Jets', fontsize=16)
     plt.close()
@@ -203,7 +203,7 @@ def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb):
         bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
     savedir = model_fname + '/' + bb + '/'
-    Path('/anomalyvol/figures/' + savedir).mkdir(exist_ok=True) # make a subfolder
+    Path('/anomalyvol/figures2/' + savedir).mkdir(exist_ok=True) # make a subfolder
     losses = proc_jets[:,:2].flatten().numpy()
     make_loss_graph(losses,  savedir + 'loss_distribution')
     cut_props = {'cut': [], 'tpr': [], 'fpr': []} # use to generate table if anoms known
@@ -280,7 +280,7 @@ def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb):
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         plt.legend(loc="lower right")
-        plt.savefig('/anomalyvol/figures/' + savedir + '_roc.pdf')
+        plt.savefig('/anomalyvol/figures2/' + savedir + '_roc.pdf')
         plt.close()
 
 def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
@@ -293,7 +293,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
         model_fname (str): name of saved model
         bb (str): which black box the input came from
     """
-    Path('/anomalyvol/figures/' + model_fname + '/reconstruction').mkdir(exist_ok=True) # make a folder for these graphs
+    Path('/anomalyvol/figures2/' + model_fname + '/reconstruction').mkdir(exist_ok=True) # make a folder for these graphs
     label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$', '$E~[GeV]$']
     feat = ['px', 'py', 'pz' , 'E']
 
@@ -308,7 +308,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
         plt.legend()
         plt.xlabel(label[i], fontsize=16)
         plt.ylabel('Particles', fontsize=16)
-        plt.savefig('/anomalyvol/figures/' + model_fname  + '/reconstruction/' + feat[i] + '_' + bb + '.pdf')
+        plt.savefig('/anomalyvol/figures2/' + model_fname  + '/reconstruction/' + feat[i] + '_' + bb + '.pdf')
         plt.close()
 
     
@@ -319,9 +319,10 @@ if __name__ == "__main__":
     print("model_name options:")
     saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
     print(saved_models)
-    parser.add_argument("--model_name", type=str, help="Saved model name discluding file extension.", required=True)
+    parser.add_argument("--model_name", type=str, help="Saved model name discluding file extension.", required=True, choices=saved_models)
+    parser.add_argument("--output_dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/figures/')
     parser.add_argument("--model_num", type=int, help="0 = EdgeConv, 1 = MetaLayer", required=True)
-    parser.add_argument("--use_sparseloss", type=int, help="Toggle use of sparseloss (0: False, 1: True). Default 0.", default=0, required=False)
+    parser.add_argument("--use_sparseloss", action='store_true', help="Toggle use of sparseloss (0: False, 1: True). Default False.", default=False, required=False)
     parser.add_argument("--num_events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
     parser.add_argument("--latent_dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
     args = parser.parse_args()
@@ -331,19 +332,17 @@ if __name__ == "__main__":
         exit("--num_events must be in range (0, 1000000]")
     if args.model_num not in [0, 1]:
         exit("--model_num can only be 0 (EdgeNet) or 1 (MetaLayer)")
-    if args.model_name not in saved_models:
-        exit("--model_name does not exist. Valid names are:\n" + str(saved_models))
-    if args.use_sparseloss not in [0, 1]:
-        exit("--use_sparseloss can only be 0 (for False) or 1 (True)")
     if args.latent_dim <= 0:
         exit("--latent_dim must be greater than 0")
     model_fname = args.model_name
     model_num = args.model_num
-    use_sparseloss = [False, True][args.use_sparseloss]
+    use_sparseloss = args.use_sparseloss
     num_events = args.num_events
     latent_dim = args.latent_dim
+    output_dir = args.output_dir
 
-    Path('/anomalyvol/figures/' + model_fname).mkdir(exist_ok=True) # make a folder for the graphs of this model
+    Path(output_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model   
+    Path(osp.join(output_dir,model_fname)).mkdir(exist_ok=True) # make a folder for the graphs of this model
     
     print("Plotting RnD set")
     cuts = np.arange(0.90, 1.0, 0.01)
@@ -359,6 +358,8 @@ if __name__ == "__main__":
     # plot_reco_difference(input_fts, reco_fts, model_fname, 'bb4')  # plot reconstruction difference
     bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, 'rnd')  # plot bump hunts
 
+    sys.exit()
+    
     print("Plotting bb0")
     cuts = np.arange(0.99, 0.999, 0.001)
     bb0 = GraphDataset('/anomalyvol/data/lead_2/bb0/', bb=0)
