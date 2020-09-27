@@ -1,7 +1,7 @@
 """
 Generate graphs for bump hunting on invariant mass.
 """
-1;95;0cimport glob
+import glob
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import torch
@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from sklearn import metrics
+import sys
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
@@ -50,7 +51,7 @@ def sparseloss3d(x,y):
     loss = torch.sum(in_dist_out.values + out_dist_in.values) / num_parts
     return loss
 
-def make_bump_graph(all_mass, outlier_mass, x_lab, save_name, bins):
+def make_bump_graph(all_mass, outlier_mass, x_lab, save_name, bins, output_dir):
     """
     Create matplotlib graphs, overlaying histograms of invariant mass for outliers and all events.
 
@@ -71,13 +72,13 @@ def make_bump_graph(all_mass, outlier_mass, x_lab, save_name, bins):
     plt.xlabel(x_lab, fontsize=16)
     plt.ylabel('Normalized events [a. u.]', fontsize=16)
     plt.tight_layout()
-    plt.savefig('/anomalyvol/figures2/' + save_name + '.pdf')
+    plt.savefig(osp.join(output_dir,save_name+'.pdf'))
     plt.close()
 
-def make_loss_graph(losses, save_name):
+def make_loss_graph(losses, save_name, output_dir):
     plt.figure(figsize=(6,4.4))
     plt.hist(losses,bins=np.linspace(0, 600, 101))
-    plt.savefig('/anomalyvol/figures2/' + save_name + '.pdf')
+    plt.savefig(osp.join(output_dir,save_name+'.pdf'))
     plt.xlabel('Loss', fontsize=16)
     plt.ylabel('Jets', fontsize=16)
     plt.close()
@@ -189,7 +190,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     return jets_proc_data[:event], torch.cat(input_fts), torch.cat(reco_fts)
 
 
-def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb):
+def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb, output_dir):
     """
     Loops and makes multiple cuts on the jet losses, and generates a graph for each cut by
     delegating to make_bump_graph().
@@ -203,9 +204,9 @@ def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb):
         bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
     savedir = model_fname + '/' + bb + '/'
-    Path('/anomalyvol/figures2/' + savedir).mkdir(exist_ok=True) # make a subfolder
+    Path(osp.join(output_dir,savedir)).mkdir(exist_ok=True) # make a subfolder
     losses = proc_jets[:,:2].flatten().numpy()
-    make_loss_graph(losses,  savedir + 'loss_distribution')
+    make_loss_graph(losses,  savedir + 'loss_distribution', output_dir)
     cut_props = {'cut': [], 'tpr': [], 'fpr': []} # use to generate table if anoms known
     # generate a graph for different cuts
     for cut in cuts:
@@ -250,21 +251,21 @@ def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb):
 
         x_lab = '$m_{jj}$ [GeV]'
         bins = np.linspace(1000, 6000, 51)
-        make_bump_graph(all_dijet_mass, outlier_dijet_mass, x_lab, dijet_graph_name, bins)
+        make_bump_graph(all_dijet_mass, outlier_dijet_mass, x_lab, dijet_graph_name, bins, output_dir)
 
         # make graph for mj1
         all_m1_mass = df['mass1']
         outlier_m1_mass = outliers['mass1']
         x_lab = '$m_{j1}$ [GeV]'
         bins = np.linspace(0, 1800, 51)
-        make_bump_graph(all_m1_mass, outlier_m1_mass, x_lab, mj1_graph_name, bins)
+        make_bump_graph(all_m1_mass, outlier_m1_mass, x_lab, mj1_graph_name, bins, output_dir)
 
         # make graph for mj2
         all_m2_mass = df['mass2']
         outlier_m2_mass = outliers['mass2']
         x_lab = '$m_{j2}$ [GeV]'
         bins = np.linspace(0, 1800, 51)
-        make_bump_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins)
+        make_bump_graph(all_m2_mass, outlier_m2_mass, x_lab, mj2_graph_name, bins, output_dir)
 
     if bb == 'rnd':  # plot roc for rnd set
         tpr = cut_props['tpr']
@@ -280,10 +281,10 @@ def bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb):
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         plt.legend(loc="lower right")
-        plt.savefig('/anomalyvol/figures2/' + savedir + '_roc.pdf')
+        plt.savefig(osp.join(output_dir,savedir+'_roc.pdf'))
         plt.close()
 
-def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
+def plot_reco_difference(input_fts, reco_fts, model_fname, bb, output_dir):
     """
     Plot the difference between the autoencoder's reconstruction and the original input
 
@@ -293,7 +294,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
         model_fname (str): name of saved model
         bb (str): which black box the input came from
     """
-    Path('/anomalyvol/figures2/' + model_fname + '/reconstruction').mkdir(exist_ok=True) # make a folder for these graphs
+    Path(osp.join(output_dir,model_fname,'reconstruction')).mkdir(exist_ok=True) # make a folder for these graphs
     label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$', '$E~[GeV]$']
     feat = ['px', 'py', 'pz' , 'E']
 
@@ -308,7 +309,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb):
         plt.legend()
         plt.xlabel(label[i], fontsize=16)
         plt.ylabel('Particles', fontsize=16)
-        plt.savefig('/anomalyvol/figures2/' + model_fname  + '/reconstruction/' + feat[i] + '_' + bb + '.pdf')
+        plt.savefig(osp.join(output_dir, model_fname, 'reconstruction', feat[i] + '_' + bb + '.pdf'))
         plt.close()
 
     
@@ -322,7 +323,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, help="Saved model name discluding file extension.", required=True, choices=saved_models)
     parser.add_argument("--output_dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/figures/')
     parser.add_argument("--model_num", type=int, help="0 = EdgeConv, 1 = MetaLayer", required=True)
-    parser.add_argument("--use_sparseloss", action='store_true', help="Toggle use of sparseloss (0: False, 1: True). Default False.", default=False, required=False)
+    parser.add_argument("--use_sparseloss", action='store_true', help="Toggle use of sparseloss. Default False.", default=False, required=False)
     parser.add_argument("--num_events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
     parser.add_argument("--latent_dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
     args = parser.parse_args()
@@ -343,46 +344,32 @@ if __name__ == "__main__":
 
     Path(output_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model   
     Path(osp.join(output_dir,model_fname)).mkdir(exist_ok=True) # make a folder for the graphs of this model
-    
-    print("Plotting RnD set")
-    cuts = np.arange(0.90, 1.0, 0.01)
-    bb4 = GraphDataset('/anomalyvol/data/lead_2/rnd/', bb=4)
-    torch.manual_seed(0) # consistency for random_split
+
     num_files = int(10000 - (10000 * (1100000 - num_events) / 1100000)) # how many files to read
     if num_events == 1000000:    # account for fact rnd set has 100k more events then other boxes
         num_files = int(10000 - (10000 * (1100000 - (num_events + 100000)) / 1100000)) # how many files to read
     ignore_files = 10000 - num_files
+
+    print("Plotting RnD set")
+    cuts = np.arange(0.90, 1.0, 0.01)
+    bb4 = GraphDataset('/anomalyvol/data/lead_2/rnd/', bb=4)
+    torch.manual_seed(0) # consistency for random_split
     bb4, ignore, ignore2 = random_split(bb4, [num_files, ignore_files, 0])
     bb4_loader = DataListLoader(bb4)
     proc_jets, input_fts, reco_fts = process(bb4_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
-    # plot_reco_difference(input_fts, reco_fts, model_fname, 'bb4')  # plot reconstruction difference
-    bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, 'rnd')  # plot bump hunts
+    #plot_reco_difference(input_fts, reco_fts, model_fname, 'bb4', output_dir)  # plot reconstruction difference
+    bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, 'rnd', output_dir)  # plot bump hunts
 
     sys.exit()
-    
-    print("Plotting bb0")
-    cuts = np.arange(0.99, 0.999, 0.001)
-    bb0 = GraphDataset('/anomalyvol/data/lead_2/bb0/', bb=0)
+
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
-    bb0, ignore, ignore2 = random_split(bb0, [num_files, ignore_files, 0])
-    bb0_loader = DataListLoader(bb0)
-    proc_jets, input_fts, reco_fts = process(bb0_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
-    # plot_reco_difference(input_fts, reco_fts, model_fname, 'bb0')
-    bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, 'bb0')
-
-    print("Plotting bb1")
-    bb1 = GraphDataset('/anomalyvol/data/lead_2/bb1/', bb=1)
-    bb1, ignore, ignore2 = random_split(bb1, [num_files, ignore_files, 0])
-    bb1_loader = DataListLoader(bb1)
-    proc_jets, input_fts, reco_fts = process(bb1_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
-    # plot_reco_difference(input_fts, reco_fts, model_fname, 'bb1')
-    bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, 'bb1')
-
-    print("Plotting bb2")
-    bb2 = GraphDataset('/anomalyvol/data/lead_2/bb2/', bb=2)
-    bb2, ignore, ignore2 = random_split(bb2, [num_files, ignore_files, 0])
-    bb2_loader = DataListLoader(bb2)
-    proc_jets, input_fts, reco_fts = process(bb2_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
-    # plot_reco_difference(input_fts, reco_fts, model_fname, 'bb2')
-    bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, 'bb2')
+    for i, bb_name in enumerate(["bb0", "bb1", "bb2"]):
+        print("Plotting %s"%bb)
+        cuts = np.arange(0.99, 0.999, 0.001)
+        bb = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=i)
+        bb, ignore, ignore2 = random_split(bb0, [num_files, ignore_files, 0])
+        bb_loader = DataListLoader(bb)
+        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+        #plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, output_dir)
+        bump_hunt(proc_jets, cuts, model_fname, model_num, use_sparseloss, bb_name, output_dir)
