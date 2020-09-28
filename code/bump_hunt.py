@@ -109,7 +109,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     model.eval()
     loss_ftn = MSELoss(reduction='mean')
     # use sparseloss function instead of default mse
-    if use_sparseloss == True:
+    if use_sparseloss:
         loss_ftn = sparseloss3d
 
     # Store the return values
@@ -123,69 +123,49 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     with torch.no_grad():
         for k, data in enumerate(data_loader):
             data = data[0] # remove extra brackets
-            for i in range(0,len(data) - 1): # traverse list of data objects
-                event += 1
-                if (event)%1000==0: print ('processing event %i'% event)
+            events = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
+            mask3jet = np.insert(np.diff(events).astype(bool), 0, True)
+            mask3jet[np.insert(mask3jet[:-1].astype(bool), 0, False)] = True
+            data = [d for d,m in zip(data,mask3jet) if m]
+            # run inference on all jets
+            data_batch = Batch.from_data_list(data)
+            batch = data_batch.batch
+            print(batch)
+            jets_x = data_batch.x
+            jets0_x = jets_x[::2]
+            jets1_x = jets_x[1::2]
+            jets_rec = model(data_batch)
+            jets0_rec = jets_rec[::2]
+            jets1_rec = jets_rec[1::2]
+            # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
+            jets_u = data_batch.u
+            jets0_u = jets_u[::2]
+            jets1_u = jets_u[1::2]
+            dijet_mass = invariant_mass(jets0_u[:,6], jets0_u[:,3], jets0_u[:,4], jets0_u[:,5],
+                                        jets1_u[:,6], jets1_u[:,3], jets1_u[:,4], jets1_u[:,5])
 
-                # check that they are from the same event
-                if i<len(data)-1 and data[i].u[0][0].item() != data[i+1].u[0][0].item():
-                    event -= 1
-                    continue
-                # and that's not a 2nd+3rd jet:
-                if i>0 and data[i-1].u[0][0].item() == data[i].u[0][0].item():
-                    event -= 1
-                    continue
-
-                # run inference on both jets at the same time
-                if use_sparseloss == True:
-                    jet_0 = data[i]
-                    jet_1 = data[i + 1]
-                    jet_x_0 = jet_0.x
-                    jet_x_1 = jet_1.x
-                    jet_rec_0 = model(jet_0)
-                    jet_rec_1 = model(jet_1)
-                    # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
-                    jet0_u = data[i].u[0]
-                    jet1_u = data[i+1].u[0]
-                    
-                    dijet_mass = invariant_mass(jet0_u[6], jet0_u[3], jet0_u[4], jet0_u[5],
-                                                jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5])
-                    jets_info = torch.tensor([loss_ftn(jet_rec_0, jet_x_0), # loss of jet 1
-                                               loss_ftn(jet_rec_1, jet_x_1), # loss of jet 2
-                                               dijet_mass,              # mass of dijet
-                                               jet0_u[2],               # mass of jet 1
-                                               jet1_u[2],               # mass of jet 2
-                                               jet1_u[-1]])             # if this event was an anomaly
-                    jets_proc_data[event,:] = jets_info
-                    input_fts.append(jet_x_0)
-                    input_fts.append(jet_x_1)
-                    reco_fts.append(jet_rec_0)
-                    reco_fts.append(jet_rec_1)
-                else:
-                    jets = Batch.from_data_list(data[i:i+2])
-                    jets_x = jets.x
-                    jets_rec = model(jets)
-                    jet_rec_0 = jets_rec[jets.batch==jets.batch[0]]
-                    jet_rec_1 = jets_rec[jets.batch==jets.batch[-1]]
-                    jet_x_0 = jets_x[jets.batch==jets.batch[0]]
-                    jet_x_1 = jets_x[jets.batch==jets.batch[-1]]
-                    # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
-                    jet0_u = data[i].u[0]
-                    jet1_u = data[i+1].u[0]
-                    dijet_mass = invariant_mass(jet0_u[6], jet0_u[3], jet0_u[4], jet0_u[5],
-                                                jet1_u[6], jet1_u[3], jet1_u[4], jet1_u[5])
-                    jets_info = torch.tensor([loss_ftn(jet_rec_0, jet_x_0), # loss of jet 1
-                                               loss_ftn(jet_rec_1, jet_x_1), # loss of jet 2
-                                               dijet_mass,              # mass of dijet
-                                               jet0_u[2],               # mass of jet 1
-                                               jet1_u[2],               # mass of jet 2
-                                               jet1_u[-1]])             # if this event was an anomaly
-                    jets_proc_data[event,:] = jets_info
-                    input_fts.append(jet_x_0)
-                    input_fts.append(jet_x_1)
-                    reco_fts.append(jet_rec_0)
-                    reco_fts.append(jet_rec_1)
-                
+            print(jets0_rec.shape)
+            print(jets0_x.shape)
+            if use_sparseloss:
+                for i in range(len(jets0_rec)):
+                    loss0 = loss_ftn(jets0_rec[i], jest0_x[i])
+                    loss1 = loss_ftn(jets1_rec[i], jets1_x[i])
+                    print(loss0, loss1)
+            else:
+                loss0 = loss_ftn(jets0_rec, jets0_x)
+                loss1 = loss_ftn(jets1_rec, jets1_x)
+            
+            jets_info = torch.cat([loss0,
+                                   loss1,
+                                   dijet_mass,              # mass of dijet
+                                   jets0_u[2],               # mass of jet 1
+                                   jets1_u[2],               # mass of jet 2
+                                   jets1_u[-1]])             # if this event was an anomaly
+            jets_proc_data[event,:] = jets_info
+            input_fts.append(jets_x[::2])
+            input_fts.append(jets_x[1::2])
+            reco_fts.append(jets_rec[::2])
+            reco_fts.append(jets_rc[1::2])
     # return pytorch tensors
     return jets_proc_data[:event], torch.cat(input_fts), torch.cat(reco_fts)
 
