@@ -203,10 +203,8 @@ def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, output_dir):
         use_sparseloss (bool): toggle for using sparseloss instead of mse
         bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
-    savedir = model_fname + '/' + bb + '/'
-    Path(osp.join(output_dir,savedir)).mkdir(exist_ok=True) # make a subfolder
     losses = np.concatenate([df['loss1'], df['loss2']])
-    make_loss_graph(losses,  savedir + 'loss_distribution', output_dir)
+    make_loss_graph(losses,  osp.join(savedir,'loss_distribution'), output_dir)
 
     # generate a graph for different cuts
     for cut in cuts:
@@ -362,6 +360,8 @@ if __name__ == "__main__":
         return df
     
     print("Plotting RnD set")
+    savedir = osp.join(model_fname, 'rnd')
+    Path(osp.join(output_dir,savedir)).mkdir(exist_ok=True) # make a subfolder
     bb4 = GraphDataset('/anomalyvol/data/lead_2/rnd/', bb=4)
     torch.manual_seed(0) # consistency for random_split
     bb4, ignore, ignore2 = random_split(bb4, [num_files, ignore_files, 0])
@@ -378,15 +378,17 @@ if __name__ == "__main__":
     num_files = int(10000 - (10000 * (1000000 - num_events) / 1000000)) # how many files to read
     ignore_files = 10000 - num_files
     for i, bb_name in enumerate(["bb0", "bb1", "bb2"]):
-        print("Plotting %s"%bb)
+        print("Plotting %s"%bb_name)
+        savedir = osp.join(model_fname, bb_name)
+        Path(osp.join(output_dir,savedir)).mkdir(exist_ok=True) # make a subfolder
         bb = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=i)
-        bb, ignore, ignore2 = random_split(bb0, [num_files, ignore_files, 0])
+        bb, ignore, ignore2 = random_split(bb, [num_files, ignore_files, 0])
         bb_loader = DataListLoader(bb)
-        if not osp.isfile(osp.join(output_dir,model_fname,bb,'df.pkl')) or overwrite:
-            proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m                                                                                 
+        if not osp.isfile(osp.join(output_dir,model_fname,bb_name,'df.pkl')) or overwrite:
+            proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
             df = get_df(proc_jets)
-            df.to_pickle(osp.join(output_dir,model_fname,bb,'df.pkl'))
+            df.to_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
         else:
-            df = pd.read_pickle(osp.join(output_dir,model_fname,bb,'df.pkl'))
+            df = pd.read_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
         #plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, output_dir)
         bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb_name, output_dir)
