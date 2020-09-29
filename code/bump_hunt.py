@@ -137,31 +137,25 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             jets1_x = jets_x[1::2]
             jets0_rec = jets_rec[::2]
             jets1_rec = jets_rec[1::2]
-            # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
             jets_u = data_batch.u
             jets0_u = jets_u[::2]
             jets1_u = jets_u[1::2]
+            # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
             dijet_mass = invariant_mass(jets0_u[:,6], jets0_u[:,3], jets0_u[:,4], jets0_u[:,5],
                                         jets1_u[:,6], jets1_u[:,3], jets1_u[:,4], jets1_u[:,5])
             njets = len(torch.unique(batch))
             losses = torch.zeros((njets), dtype=torch.float32)
             for ib in torch.unique(batch):
                 losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
-
             loss0 = losses[::2]
             loss1 = losses[1::2]
-            print(loss0.shape)
-            print(loss1.shape)
-            print(jets0_u[:,2].shape)
-            print(jets1_u[:,2].shape)
-            print(jets1_u[:,-1].shape)
             jets_info = torch.stack([loss0,
                                      loss1,
                                      dijet_mass,              # mass of dijet
                                      jets0_u[:,2],            # mass of jet 1
                                      jets1_u[:,2],            # mass of jet 2
-                                     jets1_u[:,-1]])          # if this event was an anomaly
-            print(jets_info.shape)
+                                     jets1_u[:,-1]],          # if this event was an anomaly
+                                    dim=1)
             jets_proc_data.append(jets_info)
             input_fts.append(jets_x[::2])
             input_fts.append(jets_x[1::2])
