@@ -114,10 +114,9 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
 
     # Store the return values
     max_feat = 4
-    jets_proc_data = torch.zeros((num_events, 6), dtype=torch.float32)
+    jets_proc_data = []
     input_fts = []
     reco_fts = []
-    event = -1 # event counter
 
     # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
     with torch.no_grad():
@@ -144,15 +143,10 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             jets1_u = jets_u[1::2]
             dijet_mass = invariant_mass(jets0_u[:,6], jets0_u[:,3], jets0_u[:,4], jets0_u[:,5],
                                         jets1_u[:,6], jets1_u[:,3], jets1_u[:,4], jets1_u[:,5])
-
             nevents = len(torch.unique(batch))
             losses = torch.zeros((nevents*2), dtype=torch.float32)
-            for ib in range(0,nevents):
-                print(ib)
-                print(jets_rec[batch==batch[ib]].shape)
-                print(jets_x[batch==batch[ib]].shape)
-                losses[ib] = loss_ftn(jets_rec[batch==batch[ib]], jets_x[batch==batch[ib]])
-                print(losses[ib])
+            for ib in torch.unique(batch):
+                losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
 
             loss0 = losses[::2]
             loss1 = losses[1::2]
@@ -161,19 +155,20 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             print(jets0_u[:,2].shape)
             print(jets1_u[:,2].shape)
             print(jets1_u[:,-1].shape)
-            jets_info = torch.cat([loss0,
-                                   loss1,
-                                   dijet_mass,              # mass of dijet
-                                   jets0_u[:,2],               # mass of jet 1
-                                   jets1_u[:,2],               # mass of jet 2
-                                   jets1_u[:,-1]])             # if this event was an anomaly
-            jets_proc_data[event,:] = jets_info
+            jets_info = torch.stack([loss0,
+                                     loss1,
+                                     dijet_mass,              # mass of dijet
+                                     jets0_u[:,2],            # mass of jet 1
+                                     jets1_u[:,2],            # mass of jet 2
+                                     jets1_u[:,-1]])          # if this event was an anomaly
+            print(jets_info.shape)
+            jets_proc_data.append(jets_info)
             input_fts.append(jets_x[::2])
             input_fts.append(jets_x[1::2])
             reco_fts.append(jets_rec[::2])
             reco_fts.append(jets_rec[1::2])
     # return pytorch tensors
-    return jets_proc_data[:event], torch.cat(input_fts), torch.cat(reco_fts)
+    return torch.cat(jets_proc_data), torch.cat(input_fts), torch.cat(reco_fts)
 
 
 def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, output_dir):
