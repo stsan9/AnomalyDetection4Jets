@@ -123,18 +123,19 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     with torch.no_grad():
         for k, data in enumerate(data_loader):
             data = data[0] # remove extra brackets
+            # mask 3rd jet in 3-jet events
             events = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
             mask3jet = np.insert(np.diff(events).astype(bool), 0, True)
             mask3jet[np.insert(mask3jet[:-1].astype(bool), 0, False)] = True
             data = [d for d,m in zip(data,mask3jet) if m]
             # run inference on all jets
             data_batch = Batch.from_data_list(data)
+            jets_rec = model(data_batch)
+            # get first and second jets
             batch = data_batch.batch
-            print(batch)
             jets_x = data_batch.x
             jets0_x = jets_x[::2]
             jets1_x = jets_x[1::2]
-            jets_rec = model(data_batch)
             jets0_rec = jets_rec[::2]
             jets1_rec = jets_rec[1::2]
             # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
@@ -144,28 +145,33 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             dijet_mass = invariant_mass(jets0_u[:,6], jets0_u[:,3], jets0_u[:,4], jets0_u[:,5],
                                         jets1_u[:,6], jets1_u[:,3], jets1_u[:,4], jets1_u[:,5])
 
-            print(jets0_rec.shape)
-            print(jets0_x.shape)
-            if use_sparseloss:
-                for i in range(len(jets0_rec)):
-                    loss0 = loss_ftn(jets0_rec[i], jest0_x[i])
-                    loss1 = loss_ftn(jets1_rec[i], jets1_x[i])
-                    print(loss0, loss1)
-            else:
-                loss0 = loss_ftn(jets0_rec, jets0_x)
-                loss1 = loss_ftn(jets1_rec, jets1_x)
-            
+            nevents = len(torch.unique(batch))
+            losses = torch.zeros((nevents*2), dtype=torch.float32)
+            for ib in range(0,nevents):
+                print(ib)
+                print(jets_rec[batch==batch[ib]].shape)
+                print(jets_x[batch==batch[ib]].shape)
+                losses[ib] = loss_ftn(jets_rec[batch==batch[ib]], jets_x[batch==batch[ib]])
+                print(losses[ib])
+
+            loss0 = losses[::2]
+            loss1 = losses[1::2]
+            print(loss0.shape)
+            print(loss1.shape)
+            print(jets0_u[:,2].shape)
+            print(jets1_u[:,2].shape)
+            print(jets1_u[:,-1].shape)
             jets_info = torch.cat([loss0,
                                    loss1,
                                    dijet_mass,              # mass of dijet
-                                   jets0_u[2],               # mass of jet 1
-                                   jets1_u[2],               # mass of jet 2
-                                   jets1_u[-1]])             # if this event was an anomaly
+                                   jets0_u[:,2],               # mass of jet 1
+                                   jets1_u[:,2],               # mass of jet 2
+                                   jets1_u[:,-1]])             # if this event was an anomaly
             jets_proc_data[event,:] = jets_info
             input_fts.append(jets_x[::2])
             input_fts.append(jets_x[1::2])
             reco_fts.append(jets_rec[::2])
-            reco_fts.append(jets_rc[1::2])
+            reco_fts.append(jets_rec[1::2])
     # return pytorch tensors
     return jets_proc_data[:event], torch.cat(input_fts), torch.cat(reco_fts)
 
