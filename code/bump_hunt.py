@@ -130,7 +130,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             data = data[0] # remove extra brackets
             # mask 3rd jet in 3-jet events
             event_list = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
-            unique, inverse, counts = numpy.unique(event_list, return_inverse=True, return_counts=True)
+            unique, inverse, counts = np.unique(event_list, return_inverse=True, return_counts=True)
             awk_array = awkward.JaggedArray.fromparents(inverse, event_list)
             mask = ((awk_array.localindex < 2).flatten()) * (counts[inverse]>1)
             data = [d for d,m in zip(data, mask) if m]
