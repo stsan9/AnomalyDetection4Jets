@@ -118,28 +118,31 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     input_fts = []
     reco_fts = []
 
+    event = 0
     # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
     with torch.no_grad():
         for k, data in enumerate(data_loader):
+            if event%1000==0: print('processing event %i'%event)
             data = data[0] # remove extra brackets
             # mask 3rd jet in 3-jet events
             events = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
             mask3jet = np.insert(np.diff(events).astype(bool), 0, True)
             mask3jet[np.insert(mask3jet[:-1].astype(bool), 0, False)] = True
             data = [d for d,m in zip(data,mask3jet) if m]
-            # run inference on all jets
+            # get first and second jets (GET X FIRST BECAUSE MODEL UPDATES X)
             data_batch = Batch.from_data_list(data)
-            jets_rec = model(data_batch)
-            # get first and second jets
             batch = data_batch.batch
             jets_x = data_batch.x
             jets0_x = jets_x[::2]
             jets1_x = jets_x[1::2]
-            jets0_rec = jets_rec[::2]
-            jets1_rec = jets_rec[1::2]
             jets_u = data_batch.u
             jets0_u = jets_u[::2]
             jets1_u = jets_u[1::2]
+            # run inference on all jets
+            jets_rec = model(data_batch)
+            jets0_rec = jets_rec[::2]
+            jets1_rec = jets_rec[1::2]
+            
             # calculate invariant mass (data.u format: p[event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e]])
             dijet_mass = invariant_mass(jets0_u[:,6], jets0_u[:,3], jets0_u[:,4], jets0_u[:,5],
                                         jets1_u[:,6], jets1_u[:,3], jets1_u[:,4], jets1_u[:,5])
@@ -147,6 +150,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             losses = torch.zeros((njets), dtype=torch.float32)
             for ib in torch.unique(batch):
                 losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
+
             loss0 = losses[::2]
             loss1 = losses[1::2]
             jets_info = torch.stack([loss0,
@@ -161,6 +165,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             input_fts.append(jets_x[1::2])
             reco_fts.append(jets_rec[::2])
             reco_fts.append(jets_rec[1::2])
+            event += njets/2
     # return pytorch tensors
     return torch.cat(jets_proc_data), torch.cat(input_fts), torch.cat(reco_fts)
 
