@@ -143,8 +143,8 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
             jets1_u = jets_u[1::2]
             dijet_mass = invariant_mass(jets0_u[:,6], jets0_u[:,3], jets0_u[:,4], jets0_u[:,5],
                                         jets1_u[:,6], jets1_u[:,3], jets1_u[:,4], jets1_u[:,5])
-            nevents = len(torch.unique(batch))
-            losses = torch.zeros((nevents*2), dtype=torch.float32)
+            njets = len(torch.unique(batch))
+            losses = torch.zeros((njets), dtype=torch.float32)
             for ib in torch.unique(batch):
                 losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
 
