@@ -105,7 +105,10 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     if model_num == 1: # use metalayer gnn instead
         model = models.GNNAutoEncoder()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
-    model.load_state_dict(torch.load(modpath))
+    if torch.cuda.is_available():
+        model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
+    else:
+        model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
     model.eval()
     loss_ftn = MSELoss(reduction='mean')
     # use sparseloss function instead of default mse
