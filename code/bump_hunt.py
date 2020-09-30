@@ -18,6 +18,7 @@ from pathlib import Path
 from sklearn import metrics
 import sys
 import pyBumpHunter as BH
+import tqdm
 import math
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
@@ -142,8 +143,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
     event = 0
     # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
     with torch.no_grad():
-        for k, data in enumerate(data_loader):
-            if event%1000==0: print('processing event %i'%event)
+        for k, data in tqdm.tqdm(enumerate(data_loader),total=len(data_loader)):
             data = data[0] # remove extra brackets
             # mask 3rd jet in 3-jet events
             event_list = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
