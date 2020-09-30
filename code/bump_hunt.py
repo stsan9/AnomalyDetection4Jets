@@ -17,6 +17,7 @@ import awkward
 from pathlib import Path
 from sklearn import metrics
 import sys
+import pyBumpHunter as BH
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
@@ -75,6 +76,18 @@ def make_bump_graph(nonoutlier_mass, outlier_mass, x_lab, save_name, bins, outpu
     plt.tight_layout()
     plt.savefig(osp.join(output_dir,save_name+'.pdf'))
     plt.close()
+
+    # bump hunter
+    nbins = int((6000 - 2500) / 50)
+    bins = np.linspace(2500, 6000, nbins+1)
+    bh = BH.BumpHunter(rang=[2500,6000],
+                        bins=bins,
+                        weights=weights)
+    bh.BumpScan(outlier_mass, nonoutlier_mass)
+    bh.PrintBumpInfo()
+    bh.PrintBumpTrue(outlier_mass, nonoutlier_mass)
+    bh.PlotBump(data=outlier_mass, bkg=nonoutlier_mass,filename='DELETEME.pdf')
+                        
 
 def make_loss_graph(losses, save_name, output_dir):
     plt.figure(figsize=(6,4.4))
