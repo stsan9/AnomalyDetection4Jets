@@ -84,7 +84,8 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     bins = np.linspace(2500., 6000., nbins+1)
     bh = BH.BumpHunter(rang=[2500.,6000.],
                         bins=50,
-                        weights=weights)
+                        weights=weights,
+                        width_max=2)
     bh.BumpScan(outlier_mass, nonoutlier_mass)
     sys.stdout = open(save_name+'.txt', "w")
     bh.PrintBumpTrue(outlier_mass, nonoutlier_mass)
