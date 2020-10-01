@@ -343,19 +343,21 @@ def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, save_path):
         df['loss_max'] = np.maximum(df['loss1'],df['loss2'])
 
         plt.figure(figsize=(6,4.4))
+        plt.style.use(hep.style.CMS)
         lw = 2            
         plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
 
-        for var in ['sum', 'min', 'max']:
+        for var in ['min']:
             fpr, tpr, thresholds = metrics.roc_curve(df['truth_bit'],df['loss_'+var])
             auc = metrics.auc(fpr, tpr)
             plt.plot(fpr, tpr, 
-                     lw=lw, label='ROC curve loss %s (area = %0.2f)' % (var,auc))
+                     lw=lw, label='ROC curve (AUC = %0.2f)' % (auc))
             plt.xlim([0.0, 1.0])
             plt.ylim([0.0, 1.0])
             plt.xlabel('False positive rate')
             plt.ylabel('True positive rate')
             plt.legend(loc="lower right")
+        plt.tight_layout()
         plt.savefig(osp.join(save_path,'roc.pdf'))
         plt.close()
 
@@ -373,17 +375,25 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
     label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$', '$E~[GeV]$']
     feat = ['px', 'py', 'pz' , 'E']
 
+    if model_fname != 'GNN_AE_EdgeConv_Finished':
+        loss_type = '$D^{NN}$'
+    else:
+        loss_type = 'MSE'
+
     # make a separate plot for each feature
     for i in range(input_fts.shape[1]):
-        plt.figure(figsize=(6.6,4.8))
+        plt.style.use(hep.style.CMS)
+        plt.figure(figsize=(10,8))
         bins = np.linspace(-20, 20, 101)
         if i == 3:  # different bin size for E momentum
             bins = np.linspace(-5, 35, 101)
-        plt.hist(input_fts[:,i].numpy(), bins=bins, alpha=0.5, label='input')
-        plt.hist(reco_fts[:,i].numpy(), bins=bins, alpha=0.5, label='output')
-        plt.legend()
-        plt.xlabel(label[i], fontsize=16)
-        plt.ylabel('Particles', fontsize=16)
+        plt.ticklabel_format(style='sci')
+        plt.hist(input_fts[:,i].numpy(), bins=bins, alpha=0.5, label='Input', histtype='step', lw=5)
+        plt.hist(reco_fts[:,i].numpy(), bins=bins, alpha=0.5, label='Output', histtype='step', lw=5)
+        plt.legend(title='QCD dataset, ' + loss_type, fontsize='x-large')
+        plt.xlabel(label[i], fontsize='x-large')
+        plt.ylabel('Particles', fontsize='x-large')
+        plt.tight_layout()
         plt.savefig(osp.join(save_path, 'reconstruction', feat[i] + '_' + bb + '.pdf'))
         plt.close()
 
@@ -442,14 +452,14 @@ if __name__ == "__main__":
     if box_num == 4:
         # account for fact rnd set has 100k more events then other boxes
         num_files = int(max_files - math.floor(max_files * (1100000 - num_events) / 1100000))
-        print(num_files)
         if num_events == 1000000:    
             num_files = int(max_files - (max_files * (1100000 - (num_events + 100000)) / 1100000)) # how many files to read
         ignore_files = max_files - num_files
     else:
         num_files = int(max_files - (max_files * (1000000 - num_events) / 1000000))
-        print(num_files)
         ignore_files = max_files - num_files
+
+    print("Processing %d"%num_files)
 
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
