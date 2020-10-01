@@ -86,7 +86,7 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     bins = np.linspace(2500., 6000., nbins+1)
     bh = BH.BumpHunter(rang=[2500.,6000.],
                         bins=50,
-                        weights=weights,
+                        weights=None,
                         width_min=2,
                         width_max=4)
     bh.BumpScan(outlier_mass, nonoutlier_mass)
@@ -282,22 +282,22 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
         model_fname (str): name of saved model
         bb (str): which black box the input came from
     """
-    Path(osp.join(save_path,model_fname,'reconstruction')).mkdir(exist_ok=True) # make a folder for these graphs
+    Path(osp.join(save_path,'reconstruction')).mkdir(exist_ok=True) # make a folder for these graphs
     label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$', '$E~[GeV]$']
     feat = ['px', 'py', 'pz' , 'E']
 
     # make a separate plot for each feature
     for i in range(input_fts.shape[1]):
-        plt.figure(figsize=(6,4.4))
+        plt.figure(figsize=(6.2,4.6))
         bins = np.linspace(-20, 20, 101)
         if i == 3:  # different bin size for E momentum
             bins = np.linspace(-5, 35, 101)
-        plt.hist(input_fts[:,i], bins=bins, alpha=0.5, label='input')
-        plt.hist(reco_fts[:,i], bins=bins, alpha=0.5, label='output')
+        plt.hist(input_fts[:,i].numpy(), bins=bins, alpha=0.5, label='input')
+        plt.hist(reco_fts[:,i].numpy(), bins=bins, alpha=0.5, label='output')
         plt.legend()
         plt.xlabel(label[i], fontsize=16)
         plt.ylabel('Particles', fontsize=16)
-        plt.savefig(osp.join(save_path, model_fname, 'reconstruction', feat[i] + '_' + bb + '.pdf'))
+        plt.savefig(osp.join(save_path, 'reconstruction', feat[i] + '_' + bb + '.pdf'))
         plt.close()
 
     
@@ -366,18 +366,24 @@ if __name__ == "__main__":
 
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
-    savedir = osp.join(model_fname, bb_name)
-    save_path = osp.join(output_dir,savedir)
+    save_dir = osp.join(model_fname, bb_name)
+    save_path = osp.join(output_dir,save_dir)
     Path(save_path).mkdir(exist_ok=True) # make a subfolder
     bb = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
-    torch.manual_seed(0) # consistency for random_split
+    torch.manual_seed(0)
     bb, ignore, ignore2 = random_split(bb, [num_files, ignore_files, 0])
     bb_loader = DataListLoader(bb)
     if not osp.isfile(osp.join(output_dir,model_fname,bb_name,'df.pkl')) or overwrite:
-        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim) # colms: loss1, loss2, dijet_m, jet1_m, jet2_m
+        print("Processing jet losses")
+        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, latent_dim)
         df = get_df(proc_jets)
         df.to_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
+        torch.save(input_fts, osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
+        torch.save(reco_fts, osp.join(output_dir,model_fname,bb_name,'reco_fts.pt'))
     else:
+        print("Using preprocessed dictionary")
         df = pd.read_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
-    # plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, output_dir)
-    bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb_name, output_dir)
+        input_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
+        reco_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'reco_fts.pt'))
+    plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, save_path)
+    bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb_name, save_path)
