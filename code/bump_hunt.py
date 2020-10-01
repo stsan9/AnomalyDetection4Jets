@@ -288,7 +288,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
 
     # make a separate plot for each feature
     for i in range(input_fts.shape[1]):
-        plt.figure(figsize=(6.2,4.6))
+        plt.figure(figsize=(6.6,4.8))
         bins = np.linspace(-20, 20, 101)
         if i == 3:  # different bin size for E momentum
             bins = np.linspace(-5, 35, 101)
