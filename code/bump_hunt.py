@@ -111,8 +111,12 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
 
     # do the fit
     binscenters = np.array([0.5 * (bins[i] + bins[i+1]) for i in range(len(bins)-1)])
-    popt, pcov = curve_fit(fit_function, xdata=binscenters, ydata=outlier_mass/nonoutlier_mass, 
-                       p0=[1]*5)
+    ratio = outlier_mass/nonoutlier_mass
+    mask = (~np.isnan[ratio]) * (~np.isinf[ratio])
+    popt, pcov = curve_fit(fit_function, 
+                           xdata=binscenters[mask], 
+                           ydata=ratio[mask], 
+                           p0=[1]*5)
     
     # save fit reesult in plot
     f, axs = plt.subplots(1,2, figsize=(16, 6))
@@ -138,6 +142,9 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     # Generate enough x values to make the curves look smooth.
     xspace = np.linspace(xmin, xmax, 100000)
     nonoutlier_mass_weighted, _ = np.histogram(nonoutlier_mass, bins=bins, weights=fit_function(nonoutlier_mass, *popt))
+    weighted_ratio = outlier_mass/nonoutlier_mass_weighted
+    weighted_mask = (~np.isnan[weighted_ratio]) * (~np.isinf[weighted_ratio])
+    
     f, axs = plt.subplots(1,2, figsize=(16, 3))
     axs[0].plot(binscenters, pass_hist/fail_hist, color='navy', label=r'Prefit', marker='o',linestyle='')
     axs[0].plot(xspace, fit_function(xspace, *popt), color='darkorange', linewidth=2.5, label=r'Fitted function')
@@ -146,7 +153,7 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     #axs[0].set_ylim(0, 2)
     axs[0].set_ylabel(r'Ratio')
     axs[0].legend()
-    axs[1].plot(binscenters, outlier_mass/nonoutlier_mass_weighted, color='navy', label=r'Postfit', marker='o',linestyle='')
+    axs[1].plot(binscenters[weighted_mask], weighted_ratio[weighted_mask], color='navy', label=r'Postfit', marker='o',linestyle='')
     axs[1].plot(xspace, np.ones_like(xspace), color='gray', linewidth=2.5)
     axs[1].set_xlabel(r'$m_{jj}$ [GeV]')
     axs[1].set_ylabel(r'Ratio')
