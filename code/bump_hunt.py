@@ -20,6 +20,13 @@ import sys
 import pyBumpHunter as BH
 import tqdm
 import math
+from scipy.optimize import curve_fit
+import mplhep as hep
+plt.style.use(hep.style.CMS)
+import random
+random.seed(42)
+import numpy as np
+np.random.seed(seed=42)
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
@@ -80,20 +87,89 @@ def make_bump_graph(nonoutlier_mass, outlier_mass, x_lab, save_name, bins):
     plt.close()
 
 def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
+    # first perform a fit to improve background prediciton
+    signal_mjj = np.array([1, 3, 6, 10, 16, 23, 31, 40, 50, 61, 74, 88, 103, 119, 137, 156, 
+              176, 197, 220, 244, 270, 296, 325, 354, 386, 419, 453, 489, 526, 
+              565, 606, 649, 693, 740, 788, 838, 890, 944, 1000, 1058, 1118, 
+              1181, 1246, 1313, 1383, 1455, 1530, 1607, 1687, 1770, 1856, 
+              1945, 2037, 2132, 2231, 2332, 2438, 2546, 2659, 2775, 2895, 
+              3019, 3147, 3279, 3416, 3558, 3704, 3854, 4010, 4171, 4337, 
+              4509, 4686, 4869, 5058, 5253, 5455, 5663, 5877, 6099, 6328, 
+              6564, 6808, 7060, 7320, 7589, 7866, 8152, 8447, 8752, 9067, 
+              9391, 9726, 10072, 10430, 10798, 11179, 11571, 11977, 12395, 
+              12827, 13272, 13732, 14000])
+
+    bins = signal_mjj[(signal_mjj >= 2659) * (signal_mjj <= 6099)]
+
+    xmin = bins[0]
+    xmax = bins[-1]
+    
+    # define fit function.
+    def fit_function(x, p0, p1, p2, p3, p4):
+        xnorm = (x-xmin)/(xmax-xmin)
+        return p0 + p1*xnorm + p2*xnorm**2 + p3*xnorm**3 + p4*xnorm**4
+
+    # do the fit
+    binscenters = np.array([0.5 * (bins[i] + bins[i+1]) for i in range(len(bins)-1)])
+    popt, pcov = curve_fit(fit_function, xdata=binscenters, ydata=outlier_mass/nonoutlier_mass, 
+                       p0=[1]*5)
+    
+    # save fit reesult in plot
+    f, axs = plt.subplots(1,2, figsize=(16, 6))
+    axs[0].hist(nonoutlier_mass,bins=bins,alpha=0.5, label='Nonoutliers')
+    axs[0].hist(outlier_mass,bins=bins,alpha=0.5, label='Outliers')
+    axs[0].set_xlim(xmin, xmax)
+    #axs[0].set_ylim(1, 1e4)
+    axs[0].set_xlabel(r'$m_{jj}$ [GeV]')
+    axs[0].set_ylabel(r'Events')
+    axs[0].legend(title='Prefit')
+    axs[0].semilogy()
+
+    axs[1].hist(nonoutlier_mass,bins=bins,weights=fit_function(nonoutlier_mass, *popt),alpha=0.5, label='Nonoutliers')
+    axs[1].hist(outlier_mass,bins=bins,alpha=0.5, label='Outliers')
+    axs[1].set_xlabel(r'$m_{jj}$ [GeV]')
+    axs[1].set_ylabel(r'Events')
+    axs[1].set_xlim(xmin, xmax)
+    #axs[1].set_ylim(1,1e4)
+    axs[1].legend(title='Postfit')
+    axs[1].semilogy()
+    
+    # Plot the histogram and the fitted function
+    # Generate enough x values to make the curves look smooth.
+    xspace = np.linspace(xmin, xmax, 100000)
+    nonoutlier_mass_weighted, _ = np.histogram(nonoutlier_mass, bins=bins, weights=fit_function(nonoutlier_mass, *popt))
+    f, axs = plt.subplots(1,2, figsize=(16, 3))
+    axs[0].plot(binscenters, pass_hist/fail_hist, color='navy', label=r'Prefit', marker='o',linestyle='')
+    axs[0].plot(xspace, fit_function(xspace, *popt), color='darkorange', linewidth=2.5, label=r'Fitted function')
+    axs[0].set_xlabel(r'$m_{jj}$ [GeV]')
+    axs[0].set_xlim(xmin, xmax)
+    #axs[0].set_ylim(0, 2)
+    axs[0].set_ylabel(r'Ratio')
+    axs[0].legend()
+    axs[1].plot(binscenters, outlier_mass/nonoutlier_mass_weighted, color='navy', label=r'Postfit', marker='o',linestyle='')
+    axs[1].plot(xspace, np.ones_like(xspace), color='gray', linewidth=2.5)
+    axs[1].set_xlabel(r'$m_{jj}$ [GeV]')
+    axs[1].set_ylabel(r'Ratio')
+    axs[1].set_xlim(xmin, xmax)
+    #axs[1].set_ylim(0, 2)
+    axs[1].legend(loc='upper right')
+
+    
     # bump hunter
-    weights = np.ones_like(nonoutlier_mass) / len(nonoutlier_mass)
-    nbins = int((6000 - 2500) / 50)
-    bins = np.linspace(2500., 6000., nbins+1)
-    bh = BH.BumpHunter(rang=[2500.,6000.],
-                        bins=50,
-                        weights=None,
+    # now reweight the background prediction to make it more accurate
+    weights = fit_function(nonoutlier_mass, *popt)
+    bh = BH.BumpHunter(rang=[xmin,xmax],
+                        bins=bins,
+                        weights=weights,
                         width_min=2,
-                        width_max=4)
+                        width_max=5,
+                        Npe=10000)
     bh.BumpScan(outlier_mass, nonoutlier_mass)
     sys.stdout = open(save_name+'.txt', "w")
     bh.PrintBumpTrue(outlier_mass, nonoutlier_mass)
     sys.stdout = sys.__stdout__
     bh.PlotBump(data=outlier_mass, bkg=nonoutlier_mass,filename=save_name+'.pdf')
+    bh.PlotBHstat(show_Pval=True,filename=save_name+'_stat.pdf')
 
 def make_loss_graph(losses, save_name):
     plt.figure(figsize=(6,4.4))
