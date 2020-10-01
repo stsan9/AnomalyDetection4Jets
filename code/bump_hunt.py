@@ -149,7 +149,7 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     weighted_mask = (~np.isnan(weighted_ratio)) * (~np.isinf(weighted_ratio))
     
     f, axs = plt.subplots(1,2, figsize=(16, 3))
-    axs[0].plot(binscenters, pass_hist/fail_hist, color='navy', label=r'Prefit', marker='o',linestyle='')
+    axs[0].plot(binscenters[mask], ratio[mask], color='navy', label=r'Prefit', marker='o',linestyle='')
     axs[0].plot(xspace, fit_function(xspace, *popt), color='darkorange', linewidth=2.5, label=r'Fitted function')
     axs[0].set_xlabel(r'$m_{jj}$ [GeV]')
     axs[0].set_xlim(xmin, xmax)
@@ -173,7 +173,8 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
                         weights=weights,
                         width_min=2,
                         width_max=5,
-                        Npe=10000)
+                        Npe=10000,
+                        seed=42)
     bh.BumpScan(outlier_mass, nonoutlier_mass)
     sys.stdout = open(save_name+'.txt', "w")
     bh.PrintBumpTrue(outlier_mass, nonoutlier_mass)
