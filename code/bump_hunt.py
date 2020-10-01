@@ -87,7 +87,8 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     bh = BH.BumpHunter(rang=[2500.,6000.],
                         bins=50,
                         weights=weights,
-                        width_max=2)
+                        width_min=2,
+                        width_max=4)
     bh.BumpScan(outlier_mass, nonoutlier_mass)
     sys.stdout = open(save_name+'.txt', "w")
     bh.PrintBumpTrue(outlier_mass, nonoutlier_mass)
@@ -125,6 +126,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, lat
         model = models.GNNAutoEncoder()
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     if torch.cuda.is_available():
+        print("GPUUUUU")
         model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
     else:
         model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
@@ -365,7 +367,8 @@ if __name__ == "__main__":
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
     savedir = osp.join(model_fname, bb_name)
-    Path(osp.join(output_dir,savedir)).mkdir(exist_ok=True) # make a subfolder
+    save_path = osp.join(output_dir,savedir)
+    Path(save_path).mkdir(exist_ok=True) # make a subfolder
     bb = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
     torch.manual_seed(0) # consistency for random_split
     bb, ignore, ignore2 = random_split(bb, [num_files, ignore_files, 0])
@@ -376,5 +379,5 @@ if __name__ == "__main__":
         df.to_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
     else:
         df = pd.read_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
-    #plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, output_dir)
+    # plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, output_dir)
     bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb_name, output_dir)
