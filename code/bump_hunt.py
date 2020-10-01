@@ -342,7 +342,12 @@ def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, save_path):
         df['loss_min'] = np.minimum(df['loss1'],df['loss2'])
         df['loss_max'] = np.maximum(df['loss1'],df['loss2'])
 
-        plt.figure(figsize=(6,4.4))
+        if model_fname != 'GNN_AE_EdgeConv_Finished':
+            loss_type = '$D^{NN}$'
+        else:
+            loss_type = 'MSE'
+
+        plt.figure(figsize=(8,6))
         plt.style.use(hep.style.CMS)
         lw = 2            
         plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
@@ -356,7 +361,7 @@ def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, save_path):
             plt.ylim([0.0, 1.0])
             plt.xlabel('False positive rate')
             plt.ylabel('True positive rate')
-            plt.legend(loc="lower right")
+            plt.legend(title='R&D dataset, ' + loss_type,loc="lower right")
         plt.tight_layout()
         plt.savefig(osp.join(save_path,'roc.pdf'))
         plt.close()
@@ -387,7 +392,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
         bins = np.linspace(-20, 20, 101)
         if i == 3:  # different bin size for E momentum
             bins = np.linspace(-5, 35, 101)
-        plt.ticklabel_format(style='sci')
+        plt.ticklabel_format(useMathText=True)
         plt.hist(input_fts[:,i].numpy(), bins=bins, alpha=0.5, label='Input', histtype='step', lw=5)
         plt.hist(reco_fts[:,i].numpy(), bins=bins, alpha=0.5, label='Output', histtype='step', lw=5)
         plt.legend(title='QCD dataset, ' + loss_type, fontsize='x-large')
