@@ -112,7 +112,7 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     # do the fit
     binscenters = np.array([0.5 * (bins[i] + bins[i+1]) for i in range(len(bins)-1)])
     ratio = outlier_mass/nonoutlier_mass
-    mask = (~np.isnan[ratio]) * (~np.isinf[ratio])
+    mask = (~np.isnan(ratio)) * (~np.isinf(ratio))
     popt, pcov = curve_fit(fit_function, 
                            xdata=binscenters[mask], 
                            ydata=ratio[mask], 
@@ -143,7 +143,7 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     xspace = np.linspace(xmin, xmax, 100000)
     nonoutlier_mass_weighted, _ = np.histogram(nonoutlier_mass, bins=bins, weights=fit_function(nonoutlier_mass, *popt))
     weighted_ratio = outlier_mass/nonoutlier_mass_weighted
-    weighted_mask = (~np.isnan[weighted_ratio]) * (~np.isinf[weighted_ratio])
+    weighted_mask = (~np.isnan(weighted_ratio)) * (~np.isinf(weighted_ratio))
     
     f, axs = plt.subplots(1,2, figsize=(16, 3))
     axs[0].plot(binscenters, pass_hist/fail_hist, color='navy', label=r'Prefit', marker='o',linestyle='')
