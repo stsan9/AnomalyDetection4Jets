@@ -111,7 +111,10 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
 
     # do the fit
     binscenters = np.array([0.5 * (bins[i] + bins[i+1]) for i in range(len(bins)-1)])
-    ratio = outlier_mass/nonoutlier_mass
+    
+    outlier_hist, _ = np.histogram(outlier_mass, bins=bins)
+    nonoutlier_hist, _ = np.histogram(nonoutlier_mass, bins=bins)
+    ratio = outlier_hist/nonoutlier_hist
     mask = (~np.isnan(ratio)) * (~np.isinf(ratio))
     popt, pcov = curve_fit(fit_function, 
                            xdata=binscenters[mask], 
@@ -141,8 +144,8 @@ def bump_hunter(nonoutlier_mass, outlier_mass, save_name):
     # Plot the histogram and the fitted function
     # Generate enough x values to make the curves look smooth.
     xspace = np.linspace(xmin, xmax, 100000)
-    nonoutlier_mass_weighted, _ = np.histogram(nonoutlier_mass, bins=bins, weights=fit_function(nonoutlier_mass, *popt))
-    weighted_ratio = outlier_mass/nonoutlier_mass_weighted
+    nonoutlier_hist_weighted, _ = np.histogram(nonoutlier_mass, bins=bins, weights=fit_function(nonoutlier_mass, *popt))
+    weighted_ratio = outlier_hist/nonoutlier_hist_weighted
     weighted_mask = (~np.isnan(weighted_ratio)) * (~np.isinf(weighted_ratio))
     
     f, axs = plt.subplots(1,2, figsize=(16, 3))
