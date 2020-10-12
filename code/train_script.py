@@ -155,9 +155,9 @@ if __name__ == "__main__":
     if args.box_num == 0:
         gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0) 
     elif args.box_num == 1:
-        gdata = GraphDataset(root='/anomalyvol/data/bb_train_set/bb1', bb=1) 
+        gdata = GraphDataset(root='/anomalyvol/data/bb_train_sets/bb1', bb=1) 
     elif args.box_num == 2:
-        gdata = GraphDataset(root='/anomalyvol/data/bb_train_set/bb2', bb=2) 
+        gdata = GraphDataset(root='/anomalyvol/data/bb_train_sets/bb2', bb=2) 
     elif args.box_num == 4:
         gdata = GraphDataset(root='/anomalyvol/data/rnd_set', bb=4)
     use_sparseloss = args.sparseloss
