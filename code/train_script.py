@@ -230,7 +230,7 @@ if __name__ == "__main__":
     best_valid_loss = 9999999
     loss = best_valid_loss
     if use_sparseloss == False and use_vae == False:
-        best_valid_loss = test(model, valid_loader, valid_samples, batch_size, no_E, use_sparseloss, use_vae)
+        best_valid_loss = test(model, valid_loader, valid_samples, batch_size, no_E, use_sparseloss)
     else:
         best_valid_loss = single_steps_test(model, valid_loader, valid_samples, batch_size, no_E, use_sparseloss, use_vae)
 
