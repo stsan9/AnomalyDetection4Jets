@@ -44,7 +44,7 @@ from torch_geometric.nn import EdgeConv, global_mean_pool
 
 class EdgeNetVAE(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNet, self).__init__()
+        super(EdgeNetVAE, self).__init__()
         encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
                                nn.ReLU(),
                                nn.Linear(big_dim, big_dim),
