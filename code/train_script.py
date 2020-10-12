@@ -101,7 +101,7 @@ def single_steps_test(model, loader, total, batch_size, no_E = False, use_sparse
             if use_vae == True:
                 batch_output, mu, log_var = model(data)
                 batch_loss_item = vae_loss(batch_output, y, mu, log_var).item()
-            else:
+            elif use_sparseloss = True:
                 batch_output = model(data)
                 batch_loss_item = sparseloss3d(batch_output, y).item()
             sum_loss += batch_loss_item
@@ -128,7 +128,7 @@ def sgd_train(model, optimizer, loader, total, batch_size, no_E = False, use_spa
             if use_vae == True:
                 batch_output, mu, log_var = model(data)
                 batch_loss = vae_loss(batch_output, y, mu, log_var)
-            else:
+            elif use_sparseloss = True:
                 batch_output = model(data)
                 batch_loss = sparseloss3d(batch_output, y)
             batch_loss.backward()
@@ -149,10 +149,17 @@ if __name__ == "__main__":
     parser.add_argument("--sparseloss", action='store_true', help="Toggle use of sparseloss. Default False.", default=False, required=False)
     parser.add_argument("--metalayer", action='store_true', help="Toggle to use metalayer model. Defaulted to edgeconv.", default=False, required=False)
     parser.add_argument("--vae", action='store_true', help="Toggle to use vae edgeconv model. Defaulted to edgeconv.", default=False, required=False)
-    parser.add_argument("--rnd", type=int, help="1: Train with R&D set, 0: Train with QCD background; default 0", default=0, required=False)
+    parser.add_argument("--box_num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
     args = parser.parse_args()
     # data and specifications
-    gdata = GraphDataset(root='/anomalyvol/data/rnd_set', bb=4) if args.rnd else GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0) 
+    if args.box_num == 0:
+        gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0) 
+    elif args.box_num == 1:
+        gdata = GraphDataset(root='/anomalyvol/data/bb_train_set/bb1', bb=1) 
+    elif args.box_num == 2:
+        gdata = GraphDataset(root='/anomalyvol/data/bb_train_set/bb2', bb=2) 
+    elif args.box_num == 4:
+        gdata = GraphDataset(root='/anomalyvol/data/rnd_set', bb=4)
     use_sparseloss = args.sparseloss
     use_vae = args.vae
     no_E = args.no_E
