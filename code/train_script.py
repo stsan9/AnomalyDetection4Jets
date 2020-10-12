@@ -101,7 +101,7 @@ def single_steps_test(model, loader, total, batch_size, no_E = False, use_sparse
             if use_vae == True:
                 batch_output, mu, log_var = model(data)
                 batch_loss_item = vae_loss(batch_output, y, mu, log_var).item()
-            elif use_sparseloss = True:
+            elif use_sparseloss == True:
                 batch_output = model(data)
                 batch_loss_item = sparseloss3d(batch_output, y).item()
             sum_loss += batch_loss_item
@@ -128,7 +128,7 @@ def sgd_train(model, optimizer, loader, total, batch_size, no_E = False, use_spa
             if use_vae == True:
                 batch_output, mu, log_var = model(data)
                 batch_loss = vae_loss(batch_output, y, mu, log_var)
-            elif use_sparseloss = True:
+            elif use_sparseloss == True:
                 batch_output = model(data)
                 batch_loss = sparseloss3d(batch_output, y)
             batch_loss.backward()
