@@ -309,7 +309,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     return torch.cat(jets_proc_data), torch.cat(input_fts), torch.cat(reco_fts)
 
 
-def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, save_path):
+def bump_hunt(df, cuts, model_fname, model_num, bb, save_path):
     """
     Loops and makes multiple cuts on the jet losses, and generates a graph for each cut by
     delegating to make_bump_graph().
@@ -319,7 +319,6 @@ def bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, bb, save_path):
         cuts (list of floats): all the percentages to perform a cut on the loss
         model_fname (str): name of saved model
         model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
-        use_sparseloss (bool): toggle for using sparseloss instead of mse
         bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
     losses = np.concatenate([df['loss1'], df['loss2']])
@@ -521,4 +520,4 @@ if __name__ == "__main__":
         input_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
         reco_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'reco_fts.pt'))
     plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, save_path)
-    bump_hunt(df, cuts, model_fname, model_num, use_sparseloss, use_vae, bb_name, save_path)
+    bump_hunt(df, cuts, model_fname, model_num, bb_name, save_path)
