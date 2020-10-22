@@ -234,6 +234,8 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     model = models.EdgeNet(hidden_dim=latent_dim) # default to edgeconv network
     if model_num == 1: # use metalayer gnn instead
         model = models.GNNAutoEncoder()
+    elif use_vae:
+        model = models.EdgeNetVAE(hidden_dim=latent_dim) # default to edgeconv network
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     if torch.cuda.is_available():
         print("Using GPU")
@@ -286,7 +288,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
             # calculate loss per each batch (jet)
             for ib in torch.unique(batch):
                 if use_vae:
-                    losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], mu, logvar)
+                    losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], mu, log_var)
                 else:
                     losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
 
