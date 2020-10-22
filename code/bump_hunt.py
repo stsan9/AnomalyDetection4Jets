@@ -211,7 +211,7 @@ def make_loss_graph(losses, save_name):
     plt.ylabel('Jets', fontsize=16)
     plt.close()
 
-def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use_vae, latent_dim):
+def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use_vae, latent_dim, no_E):
     """
     Use the specified model to determine the reconstruction loss of each sample.
     Also calculate the invariant mass of the jets.
@@ -230,12 +230,13 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
              Row-wise: dijet of event
         
     """
+    input_dim = 3 if no_E else 4
     # load model for loss calculation
-    model = models.EdgeNet(hidden_dim=latent_dim) # default to edgeconv network
+    model = models.EdgeNet(input_dim=input_dim, hidden_dim=latent_dim) # default to edgeconv network
     if model_num == 1: # use metalayer gnn instead
         model = models.GNNAutoEncoder()
     elif use_vae:
-        model = models.EdgeNetVAE(hidden_dim=latent_dim) # default to edgeconv network
+        model = models.EdgeNetVAE(input_dim=input_dim, hidden_dim=latent_dim) # default to edgeconv network
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     if torch.cuda.is_available():
         print("Using GPU")
@@ -269,8 +270,10 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
             data = [d for d,m in zip(data, mask) if m]
             # get first and second jets (GET X FIRST BECAUSE MODEL UPDATES X)
             data_batch = Batch.from_data_list(data)
-            batch = data_batch.batch
+            if no_E:
+                data_batch.x = data_batch.x[:,:-1]
             jets_x = data_batch.x
+            batch = data_batch.batch
             jets_u = data_batch.u
             jets0_u = jets_u[::2]
             jets1_u = jets_u[1::2]
@@ -447,6 +450,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_num", type=int, help="0 = EdgeConv, 1 = MetaLayer", required=True)
     parser.add_argument("--use_sparseloss", action='store_true', help="Toggle use of sparseloss. Default False.", default=False, required=False)
     parser.add_argument("--use_vae", action='store_true', help="Toggle use of vae loss. Default False.", default=False, required=False)
+    parser.add_argument("--no_E", action='store_true', help="If model was trained without E feature", default=False, required=False)
     parser.add_argument("--overwrite", action='store_true', help="Toggle overwrite of pkl. Default False.", default=False, required=False)
     parser.add_argument("--num_events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
     parser.add_argument("--latent_dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
@@ -471,6 +475,7 @@ if __name__ == "__main__":
     output_dir = args.output_dir
     overwrite = args.overwrite
     box_num = args.box_num
+    no_E = args.no_E
     cuts = np.arange(0.2, 1.0, 0.1)
 
     Path(output_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model   
@@ -511,7 +516,7 @@ if __name__ == "__main__":
     bb_loader = DataListLoader(bb)
     if not osp.isfile(osp.join(output_dir,model_fname,bb_name,'df.pkl')) or overwrite:
         print("Processing jet losses")
-        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, use_vae, latent_dim)
+        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, use_vae, latent_dim, no_E)
         df = get_df(proc_jets)
         df.to_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
         torch.save(input_fts, osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
