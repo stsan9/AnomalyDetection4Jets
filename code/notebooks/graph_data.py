@@ -1,11 +1,3 @@
-"""
-    Custom PyTorch dataloader. Use command "python graph_data.py --h"
-    or look at the main function for details on how to run. Handles
-    preprocessing collision event data into particle-level data
-    represented using graphs in PyTorch geometric. If processed data
-    is already present in specified directory, will just load in
-    data.
-"""
 import os.path as osp
 import torch
 from torch_geometric.data import Dataset, Data
@@ -22,13 +14,13 @@ def process_func(args):
     self, raw_path, k = args
     return self.process_one_chunk(raw_path, k)
 
-# functions needed from original pytorch dataset class for overwriting _process ###
+### helper functions from original dataset class ###
 def to_list(x):
     if not isinstance(x, (tuple, list)) or isinstance(x, str):
         x = [x]
     return x
 
-# augmented to be less robust but faster than original (remove check for all files)
+# augmented to be less robust but faster than original
 def files_exist(files):
     return len(files) != 0
 
@@ -36,7 +28,6 @@ def __repr__(obj):
     if obj is None:
         return 'None'
     return re.sub('(<.*?)\\s.*(>)', r'\1\2', obj.__repr__())
-
 
 class GraphDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None,
@@ -49,7 +40,6 @@ class GraphDataset(Dataset):
             n_particles (int): particles + padding for jet (default -1=no padding)
             bb (int): dataset to read in (0=background)
             n_events (int): how many events to process (-1=all)
-            n_proc (int): number of processes to split into
             n_events_merge (int): how many events to merge
             leading_pair_only (int): toggle to process only leading 2 jets / event
         """
@@ -98,7 +88,7 @@ class GraphDataset(Dataset):
 
         Args:
             raw_path (str): The absolute path to the dataset file
-            k (int): Counter of the process used to separate chunk of data to process
+            k (int): Number of process (0,...,max_events // n_proc) to determine where to read file
         """
         df = pd.read_hdf(raw_path, start = k * self.chunk_size, stop = (k + 1) * self.chunk_size)
         all_events = df.values
@@ -202,7 +192,6 @@ class GraphDataset(Dataset):
             pool.map(process_func, pars)
 
     def get(self, idx):
-        """ Used by PyTorch DataSet class """
         p = osp.join(self.processed_dir, self.processed_file_names[idx])
         data = torch.load(p)
         return data
