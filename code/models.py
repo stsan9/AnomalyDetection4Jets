@@ -1,3 +1,6 @@
+"""
+    Model definitions.
+"""
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import EdgeConv, global_mean_pool
@@ -8,7 +11,7 @@ from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 from torch_scatter import scatter_mean
 from torch_geometric.nn import MetaLayer
 
-# GNN AE using EdgeConv
+# GNN AE using EdgeConv (mean aggregation graph operation). Basic GAE model.
 class EdgeNet(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
         super(EdgeNet, self).__init__()
@@ -38,10 +41,7 @@ class EdgeNet(nn.Module):
         data.x = self.decoder(data.x,data.edge_index)
         return data.x
     
-import torch.nn as nn
-import torch.nn.functional as F
-from torch_geometric.nn import EdgeConv, global_mean_pool
-
+# GVAE based on EdgeNet model above.
 class EdgeNetVAE(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
         super(EdgeNetVAE, self).__init__()
@@ -80,7 +80,7 @@ class EdgeNetVAE(nn.Module):
         data.x = self.decoder(z,data.edge_index)
         return data.x, mu, log_var
 
-# GNN Meta Layer components
+# All GNN MetaLayer components (GAE with global and edge features)
 class EdgeEncoder(torch.nn.Module):
     def __init__(self):
         super(EdgeEncoder, self).__init__()
