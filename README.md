@@ -1,27 +1,20 @@
-# AnomalyDetection4Jets
+# Particle Graph Autoencoders for Anomaly Detection
+![GAE_new-1](https://user-images.githubusercontent.com/42155174/98452299-ca24e980-2102-11eb-9474-c67a67f31923.png)
 
-create pod with custom docker image (has /anomalyvol volume mounted containing data from zenodo)
-```
-kubectl create -f anomaly-pod.yaml
-```
+## Project Description
+This project implements autoencoders with graph neural networks using [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html) for application in anomaly detection in particle collisions at the Large Hadron Collider.
 
-set up port forwarding
-```
-kubectl port-forward gpu-pod-example 8888:8888
-```
+An autoencoder trained to reconstruct data can be used to filter out background from potentially anomalous signals by cutting on the reconstruction loss. We can then analyze the filtered data using a bump hunt. More details can be found in this community submission of our preliminary results: [GraphAutoencoderLHCO2020PaperContribution.pdf](https://github.com/stsan9/AnomalyDetection4Jets/files/5505568/GraphAutoencoderLHCO2020PaperContribution.pdf).
 
-log on to pod
-```
-kubectl exec -it gpu-pod-example -- bash
-```
+## Dataset
+Dataset comes from the [LHC Olympics 2020 Anomaly Detection Challenge](https://lhco2020.github.io/homepage/). Dataset and details can be found at the following:
 
-once logged on, check out code and launch jupyter
-```
-git clone https://github.com/stsan9/AnomalyDetection4Jets
-jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser
-```
+[Background Data and Black Boxes](https://zenodo.org/record/3596919#.XkSGTRNKhTZ)
 
-once you're done, make sure to commit and push any changes you want to keep to the repo, then tear down the pod
-```
-kubectl delete pods gpu-pod-example
-```
+[R&D Dataset](https://zenodo.org/record/2629073#.XKdewGXlRg0)
+
+## WIP:
+- [ ] Normalizing Flow
+- [ ] Train directly on R&D dataset with different amounts of injected signal and generate ROC curves
+- [ ] Speed up model training
+- [ ] Experiment with Hungarian Loss
