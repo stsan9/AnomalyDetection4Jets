@@ -4,7 +4,7 @@
 ## Project Description
 This project implements autoencoders with graph neural networks using [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html) for application in anomaly detection in particle collisions at the Large Hadron Collider.
 
-An autoencoder trained to reconstruct data can be used to filter out background from potentially anomalous signals by cutting on the reconstruction loss. We can then analyze the filtered data using a bump hunt. More details can be found in this community submission of our preliminary results: [GraphAutoencoderLHCO2020PaperContribution.pdf](https://github.com/stsan9/AnomalyDetection4Jets/files/5505568/GraphAutoencoderLHCO2020PaperContribution.pdf).
+An autoencoder trained to reconstruct data can be used to filter out background from potentially anomalous signals by cutting on the reconstruction loss. We can then analyze the filtered data using a bump hunt. More details can be found in this community submission of our preliminary results (DL link): [GraphAutoencoderLHCO2020PaperContribution.pdf](https://github.com/stsan9/AnomalyDetection4Jets/files/5505568/GraphAutoencoderLHCO2020PaperContribution.pdf).
 
 ## Dataset
 Dataset comes from the [LHC Olympics 2020 Anomaly Detection Challenge](https://lhco2020.github.io/homepage/). Dataset and details can be found at the following:
