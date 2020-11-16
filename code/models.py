@@ -183,16 +183,16 @@ class EdgeNetDeeper3(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
         super(EdgeNetDeeper3, self).__init__()
 
-        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim*2),
+        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
                                    nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
+                                   nn.Linear(big_dim, big_dim),
                                    nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
+                                   nn.Linear(big_dim, big_dim),
                                    nn.ReLU(),
         )
-        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim*2), big_dim*2),
+        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
                                    nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim),
+                                   nn.Linear(big_dim, big_dim),
                                    nn.ReLU(),
                                    nn.Linear(big_dim, big_dim),
                                    nn.ReLU(),
@@ -214,73 +214,6 @@ class EdgeNetDeeper3(nn.Module):
         decoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
                                    nn.ReLU(),
                                    nn.Linear(big_dim, big_dim),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim, big_dim*2),
-                                   nn.ReLU()
-        )
-        decoder_nn_3 = nn.Sequential(nn.Linear(2*(big_dim*2), big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, input_dim),
-                                   nn.ReLU()
-        )
-
-        self.batchnorm = nn.BatchNorm1d(input_dim)
-
-        self.encoder_1 = EdgeConv(nn=encoder_nn_1,aggr=aggr)
-        self.encoder_2 = EdgeConv(nn=encoder_nn_2,aggr=aggr)
-        self.encoder_3 = EdgeConv(nn=encoder_nn_3,aggr=aggr)
-        self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
-        self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
-        self.decoder_3 = EdgeConv(nn=decoder_nn_3,aggr=aggr)
-
-    def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.encoder_3(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        data.x = self.decoder_3(data.x,data.edge_index)
-        return data.x
-    
-# EdgeNetDeeper3 but with non symmetrical encoder/decoder
-class EdgeNetDeeper4(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNetDeeper4, self).__init__()
-
-        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
-                                   nn.ReLU(),
-        )
-        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim*2), big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim, big_dim),
-                                   nn.ReLU(),
-        )
-        encoder_nn_3 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim, big_dim),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim, hidden_dim),
-                                   nn.ReLU(),
-        )
-        decoder_nn_1 = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim*2),
-                                   nn.ReLU()
-        )
-        decoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim*2), big_dim*2),
-                                   nn.ReLU(),
-                                   nn.Linear(big_dim*2, big_dim),
                                    nn.ReLU(),
                                    nn.Linear(big_dim, big_dim),
                                    nn.ReLU()
