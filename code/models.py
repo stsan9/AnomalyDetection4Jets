@@ -132,7 +132,7 @@ class EdgeNetDeeper(nn.Module):
 # 2 EdgeConv Wider
 class EdgeNetDeeper2(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNetDeeper, self).__init__()
+        super(EdgeNetDeeper2, self).__init__()
 
         encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim*2),
                                    nn.ReLU(),
@@ -181,7 +181,7 @@ class EdgeNetDeeper2(nn.Module):
 # 3 EdgeConv Wider symmetrical encoder/decoder
 class EdgeNetDeeper3(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNetDeeper, self).__init__()
+        super(EdgeNetDeeper3, self).__init__()
 
         encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim*2),
                                    nn.ReLU(),
@@ -248,7 +248,7 @@ class EdgeNetDeeper3(nn.Module):
 # EdgeNetDeeper3 but with non symmetrical encoder/decoder
 class EdgeNetDeeper4(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNetDeeper, self).__init__()
+        super(EdgeNetDeeper4, self).__init__()
 
         encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim*2),
                                    nn.ReLU(),
