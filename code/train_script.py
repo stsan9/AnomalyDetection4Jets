@@ -144,10 +144,11 @@ if __name__ == "__main__":
     # TODO: Clean up this args list; simplify model selection (refer to particleflow)
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
+    parser.add_argument("--box_num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
     parser.add_argument("--lat_dim", type=int, help="latent space size", default=2, required=False)
     parser.add_argument("--no_E", action='store_true', 
                         help="Toggle to remove energy from training and testing. Default False.", default=False, required=False)
-    parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
     parser.add_argument("--sparseloss", action='store_true', help="Toggle use of sparseloss. Default False.", default=False, required=False)
     parser.add_argument("--metalayer", action='store_true', 
                         help="Toggle to use metalayer model. Defaulted to edgeconv.", default=False, required=False)
@@ -155,7 +156,6 @@ if __name__ == "__main__":
                         help="Toggle to use vae edgeconv model. Defaulted to edgeconv.", default=False, required=False)
     parser.add_argument("--embed", action='store_true', help="Toggle to use node embedded GAE.", default=False, required=False)
     parser.add_argument("--deepernet", type=int, help="Index to use one of the deeper model", default=0, required=False)
-    parser.add_argument("--box_num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=-1, required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3, required=False)
     args = parser.parse_args()
