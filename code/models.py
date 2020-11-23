@@ -83,7 +83,7 @@ class EdgeNetVAE(nn.Module):
 # no EdgeConvs
 class AE(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNet, self).__init__()
+        super(AE, self).__init__()
         self.encoder = nn.Sequential(nn.Linear((input_dim), big_dim),
                                nn.ReLU(),
                                nn.Linear(big_dim, big_dim),
@@ -272,7 +272,7 @@ class EdgeNetDeeper3(nn.Module):
 # 2 EdgeConv Encoder, 1 EdgeConv decoder and thinner
 class EdgeNetDeeper4(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNetDeeper2, self).__init__()
+        super(EdgeNetDeeper4, self).__init__()
 
         encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
                                    nn.ReLU(),
@@ -293,6 +293,7 @@ class EdgeNetDeeper4(nn.Module):
                                    nn.Linear(big_dim, big_dim),
                                    nn.ReLU(),
                                    nn.Linear(big_dim, big_dim*2)
+        )
 
         self.batchnorm = nn.BatchNorm1d(input_dim)
 
@@ -310,7 +311,7 @@ class EdgeNetDeeper4(nn.Module):
 # Baseline Edgenet but deeper encoder/decoder
 class EdgeNetDeeper5(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
-        super(EdgeNet, self).__init__()
+        super(EdgeNetDeeper5, self).__init__()
         encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
                                nn.ReLU(),
                                nn.Linear(big_dim, big_dim),
