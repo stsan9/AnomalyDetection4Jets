@@ -161,7 +161,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Possible deeper models
-    deep_models = [models.EdgeNetDeeper, models.EdgeNetDeeper2, models.EdgeNetDeeper3, models.EdgeNetDeeper4, models.AE]
+    deep_models = [models.EdgeNetDeeper, models.EdgeNetDeeper2, models.EdgeNetDeeper3, models.EdgeNetDeeper4, models.EdgeNetDeeper5, models.AE]
     
     # data and specifications
     if args.box_num == 0:
