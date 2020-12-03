@@ -37,7 +37,8 @@ model_list = {0: models.EdgeNet,
               5: models.EdgeNetDeeper5,
               6: models.AE,
               7: models.EdgeNetVAE,
-              8: models.GNNAutoEncoder}
+              8: models.EdgeNetEmbed,
+              9: models.GNNAutoEncoder}
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
