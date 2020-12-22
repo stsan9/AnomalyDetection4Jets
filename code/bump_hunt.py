@@ -246,7 +246,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     input_dim = 3 if no_E else 4
 
     # LOAD corresponding model
-    if model_num == 8:
+    if model_list[model_num] == models.GNNAutoEncoder:  # metalayer
         model = model_list[model_num]()
     else:
         model = model_list[model_num](input_dim=input_dim, hidden_dim=latent_dim)
