@@ -1,3 +1,4 @@
+import glob
 import torch
 import tqdm
 import math
@@ -8,6 +9,7 @@ from torch.utils.data import random_split
 import os.path as osp
 from graph_data import GraphDataset
 import models
+
 
 # darkflow loss function
 def sparseloss3d(x,y):
@@ -141,7 +143,11 @@ def sgd_train(model, optimizer, loader, total, batch_size, no_E = False, use_spa
     return sum_loss/(i+1)
 
 if __name__ == "__main__":
-    # TODO: Clean up this args list; simplify model selection (refer to particleflow)
+    # display some argument options
+    saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
+    print(f"saved mod_name's:\n{saved_models}\n")
+    print(f"model_num options:\n{models.model_list}\n")
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
@@ -155,13 +161,10 @@ if __name__ == "__main__":
     parser.add_argument("--vae", action='store_true', 
                         help="Toggle to use vae edgeconv model. Defaulted to edgeconv.", default=False, required=False)
     parser.add_argument("--embed", action='store_true', help="Toggle to use node embedded GAE.", default=False, required=False)
-    parser.add_argument("--deepernet", type=int, help="Index to use one of the deeper model", default=0, required=False)
+    parser.add_argument("--model_num", type=int, help="Model number", default=-1, required=True)
     parser.add_argument("--batch_size", type=int, help="Batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3, required=False)
     args = parser.parse_args()
-    
-    # Possible deeper models
-    deep_models = [models.EdgeNetDeeper, models.EdgeNetDeeper2, models.EdgeNetDeeper3, models.EdgeNetDeeper4, models.EdgeNetDeeper5, models.AE]
     
     # data and specifications
     if args.box_num == 0:
@@ -196,8 +199,8 @@ if __name__ == "__main__":
         model = models.EdgeNetVAE(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     elif args.embed:
         model = models.EdgeNetEmbed(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
-    elif args.deepernet != -1:
-        model = deep_models[args.deepernet](input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
+    elif args.model_num != -1:
+        model = models.model_list[args.model_num](input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     else:
         print("Using default EdgeConv")
         model = models.EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
