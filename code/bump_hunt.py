@@ -28,6 +28,18 @@ random.seed(42)
 import numpy as np
 np.random.seed(seed=42)
 
+# models
+model_list = {0: models.EdgeNet, 
+              1: models.EdgeNetDeeper,
+              2: models.EdgeNetDeeper2,
+              3: models.EdgeNetDeeper3,
+              4: models.EdgeNetDeeper4,
+              5: models.EdgeNetDeeper5,
+              6: models.AE,
+              7: models.EdgeNetVAE,
+              8: models.EdgeNetEmbed,
+              9: models.GNNAutoEncoder}
+
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
         Calculates the invariant mass between 2 jets. Based on the formula:
@@ -230,14 +242,16 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
              Row-wise: dijet of event
         
     """
+
     input_dim = 3 if no_E else 4
-    # load model for loss calculation
-    model = models.EdgeNet(input_dim=input_dim, hidden_dim=latent_dim) # default to edgeconv network
-    if model_num == 1: # use metalayer gnn instead
-        model = models.GNNAutoEncoder()
-    elif use_vae:
-        model = models.EdgeNetVAE(input_dim=input_dim, hidden_dim=latent_dim) # default to edgeconv network
+
+    # LOAD corresponding model
+    if model_list[model_num] == models.GNNAutoEncoder:  # metalayer
+        model = model_list[model_num]()
+    else:
+        model = model_list[model_num](input_dim=input_dim, hidden_dim=latent_dim)
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
+
     if torch.cuda.is_available():
         print("Using GPU")
         model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
@@ -439,15 +453,17 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
 
     
 if __name__ == "__main__":
+    # display some argument options
+    saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
+    print(f"model_name options:\n{saved_models}\n")
+    print(f"model_num options:\n{model_list}\n")
+
     # process arguments
     import argparse
     parser = argparse.ArgumentParser()
-    print("model_name options:")
-    saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
-    print(saved_models)
     parser.add_argument("--model_name", type=str, help="Saved model name discluding file extension.", required=True, choices=saved_models)
     parser.add_argument("--output_dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/figures/')
-    parser.add_argument("--model_num", type=int, help="0 = EdgeConv, 1 = MetaLayer", required=True)
+    parser.add_argument("--model_num", type=int, help="Model number", required=True)
     parser.add_argument("--use_sparseloss", action='store_true', help="Toggle use of sparseloss. Default False.", default=False, required=False)
     parser.add_argument("--use_vae", action='store_true', help="Toggle use of vae loss. Default False.", default=False, required=False)
     parser.add_argument("--no_E", action='store_true', help="If model was trained without E feature", default=False, required=False)
@@ -460,12 +476,11 @@ if __name__ == "__main__":
     # validate arguments
     if args.num_events <= 0 or args.num_events > 1000000:
         exit("--num_events must be in range (0, 1000000]")
-    if args.model_num not in [0, 1]:
-        exit("--model_num can only be 0 (EdgeNet) or 1 (MetaLayer)")
     if args.latent_dim <= 0:
         exit("--latent_dim must be greater than 0")
     if args.box_num not in [0, 1, 2, 4]:
         exit("--box_num invalid; must be 0, 1, 2, or 4")
+
     model_fname = args.model_name
     model_num = args.model_num
     use_sparseloss = args.use_sparseloss
