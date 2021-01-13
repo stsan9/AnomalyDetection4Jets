@@ -804,5 +804,6 @@ model_list = {
     11: EdgeNetDeeper2BN,
     12: EdgeNetDeeper3BN,
     13: EdgeNetDeeper4BN,
-    14: EdgeNetDeeper5BN
+    14: EdgeNetDeeper5BN,
+    15: EdgeNetDynamic
 }
