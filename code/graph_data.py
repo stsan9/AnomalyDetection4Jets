@@ -106,7 +106,7 @@ class GraphDataset(Dataset):
         df = pd.read_hdf(raw_path, start = k * self.chunk_size, stop = (k + 1) * self.chunk_size)
         if self.signal_only:
             df = df.loc[df.iloc[:,-1] == 1] # get only signals [rnd]
-        else if self.background_only:
+        elif self.background_only:
             df = df.loc[df.iloc[:,-1] == 0] # get only background [rnd]
         all_events = df.values
         rows = all_events.shape[0]
