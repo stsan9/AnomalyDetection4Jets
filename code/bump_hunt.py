@@ -270,7 +270,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
             awk_array = awkward.JaggedArray.fromparents(inverse, event_list)
             mask = ((awk_array.localindex < 2).flatten()) * (counts[inverse]>1)
             data = [d for d,m in zip(data, mask) if m]
-            # get first and second jets (GET X FIRST BECAUSE MODEL UPDATES X)
+            # get first and second jets (get x first because model overwrites x)
             data_batch = Batch.from_data_list(data)
             if no_E:
                 data_batch.x = data_batch.x[:,:-1]

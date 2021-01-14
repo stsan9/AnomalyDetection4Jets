@@ -41,7 +41,8 @@ def __repr__(obj):
 class GraphDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None,
                  n_particles=-1, bb=0, n_events=-1, n_proc=1,
-                 n_events_merge=100, leading_pair_only = 0):
+                 n_events_merge=100, leading_pair_only = 0, signal_only=False,
+                 background_only=False):
         """
         Initialize parameters of graph dataset
         Args:
@@ -61,6 +62,8 @@ class GraphDataset(Dataset):
         self.chunk_size = self.n_events // self.n_proc
         self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt', 'data_rnd_{}.pt']
         self.leading_pair_only = leading_pair_only
+        self.signal_only = signal_only
+        self.background_only = background_only
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
 
@@ -101,23 +104,29 @@ class GraphDataset(Dataset):
             k (int): Counter of the process used to separate chunk of data to process
         """
         df = pd.read_hdf(raw_path, start = k * self.chunk_size, stop = (k + 1) * self.chunk_size)
+        if self.signal_only:
+            df = df.loc[df.iloc[:,-1] == 1] # get only signals [rnd]
+        else if self.background_only:
+            df = df.loc[df.iloc[:,-1] == 0] # get only background [rnd]
         all_events = df.values
         rows = all_events.shape[0]
         cols = all_events.shape[1]
         datas = []
+
         for i in range(rows):
             if i%self.n_events_merge == 0:
                 datas = []
             event_idx = k*self.chunk_size + i
+            if event_idx == self.signal_only:
+                event_idx += 2000000 # avoid conflicting event indices when combining signal-only set with others
             ijet = 0
+            # cluster jets from the particles in one event
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
             for j in range(cols // 3):
                 if (all_events[i][j*3]>0):
                     pseudojets_input[j]['pT'] = all_events[i][j*3]
                     pseudojets_input[j]['eta'] = all_events[i][j*3+1]
                     pseudojets_input[j]['phi'] = all_events[i][j*3+2]
-
-            # cluster jets from the particles in one event
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
             jet_num = 0
@@ -166,11 +175,10 @@ class GraphDataset(Dataset):
                 edge_index=edge_index.t().contiguous()
                 # save [px, py, pz, e] of particles as node attributes and target
                 x = torch.tensor(particles[:,:4], dtype=torch.float)
-                # y = x
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
                 u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e, signal_bit], dtype=torch.float)
-                data = Data(x=x, edge_index=edge_index)#), y=y, edge_attr=edge_attr)
+                data = Data(x=x, edge_index=edge_index)
                 data.u = torch.unsqueeze(u, 0)
                 if self.pre_filter is not None and not self.pre_filter(data):
                     continue
@@ -179,11 +187,15 @@ class GraphDataset(Dataset):
                 datas.append([data])
                 ijet += 1
 
+            # save data in separate files for every n_events_merge events
             if i%self.n_events_merge == self.n_events_merge-1:
                 datas = sum(datas,[])
-                #print(datas)
                 # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e, signal_bit)
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
+        
+        if i%self.n_events_merge != self.n_events_merge-1 and len(data) != 0: # save any lefovers
+            datas = sum(datas,[])
+            torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         """
@@ -252,8 +264,14 @@ if __name__ == "__main__":
     parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background, -1 is the mixed rnd set)")
     parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
     parser.add_argument("--leading-pair-only", type=int, default=0, help="if we only want the leading 2 jets of each event (0: False, not 0: True)")
+    parser.add_argument("--signal-only", action='store_true', help="Proc events with signal only [rnd]", default=False, required=False)
+    parser.add_argument("--background-only", action='store_true', help="Proc events with background only [rnd]", default=False, required=False)
     args = parser.parse_args()
+
+    if args.bb != -1 and (args.signal_only or args.background_only):
+        exit("Can only use --signal-only/--background-only flag with RND dataset")
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
                          n_events=args.n_events, n_particles=args.n_particles,
-                         n_events_merge=args.n_events_merge, leading_pair_only=args.leading_pair_only)
+                         n_events_merge=args.n_events_merge, leading_pair_only=args.leading_pair_only,
+                         signal_only=args.signal_only, background_only=args.background_only)
