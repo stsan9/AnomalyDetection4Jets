@@ -129,14 +129,11 @@ class GraphDataset(Dataset):
                     pseudojets_input[j]['phi'] = all_events[i][j*3+2]
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
-            jet_num = 0
-            for jet in jets: # for each jet get (px, py, pz, e)
+            if self.leading_pair_only and len(jets) < 2: break
+            elif self.leading_pair_only: jets = jets[:2]
+            # turn jets into particle graph data
+            for jet in jets:
                 # if setting true, only get leading 2 jets and skip events with less than 2 jets
-                if self.leading_pair_only:
-                    if len(jets) < 2:
-                        break
-                    elif jet_num > 1:
-                        break
                 if jet.pt < 200 or len(jet)<=1: continue
                 if self.n_particles > -1:
                     n_particles = self.n_particles
@@ -161,23 +158,19 @@ class GraphDataset(Dataset):
                 else:
                     n_particles = len(jet)
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
-                # save [deta, dphi] as edge attributes (may not be used depending on model)
-                #eta0s = particles[pairs[:,0],6]
-                #eta1s = particles[pairs[:,1],6]
-                #phi0s = particles[pairs[:,0],7]
-                #phi1s = particles[pairs[:,1],7]
-                #detas = np.abs(eta0s - eta1s)
-                #dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
-                #edge_attr = np.stack([detas,dphis],axis=1)
-                #edge_attr = torch.tensor(edge_attr, dtype=torch.float)
                 signal_bit = all_events[i][-1]
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
-                # save [px, py, pz, e] of particles as node attributes and target
-                x = torch.tensor(particles[:,:4], dtype=torch.float)
-                # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
-                # (may not be used depending on model)
-                u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e, signal_bit], dtype=torch.float)
+                x = torch.tensor(particles[:,:4], dtype=torch.float)    # px, py, pz, e
+                u = torch.tensor([event_idx,
+                                  n_particles,
+                                  jet.mass,
+                                  jet.px,
+                                  jet.py,
+                                  jet.pz,
+                                  jet.e,
+                                  signal_bit],
+                                  dtype=torch.float)
                 data = Data(x=x, edge_index=edge_index)
                 data.u = torch.unsqueeze(u, 0)
                 if self.pre_filter is not None and not self.pre_filter(data):
