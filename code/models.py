@@ -3,7 +3,7 @@
 """
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import EdgeConv, global_mean_pool
+from torch_geometric.nn import EdgeConv, global_mean_pool, DynamicEdgeConv
 import torch
 import torch_geometric.transforms as T
 from torch_geometric.nn import EdgeConv, global_mean_pool
@@ -342,6 +342,294 @@ class EdgeNetDeeper5(nn.Module):
         data.x = self.decoder(data.x,data.edge_index)
         return data.x
 
+# Deeper vers + more Batchnorm
+class EdgeNetDeeperBN(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
+        super(EdgeNetDeeperBN, self).__init__()
+
+        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, hidden_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(hidden_dim)
+        )
+        decoder_nn_1 = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        decoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, input_dim)
+        )
+
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder_1 = EdgeConv(nn=encoder_nn_1,aggr=aggr)
+        self.encoder_2 = EdgeConv(nn=encoder_nn_2,aggr=aggr)
+        self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
+        self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
+
+    def forward(self, data):
+        data.x = self.batchnorm(data.x)
+        data.x = self.encoder_1(data.x,data.edge_index)
+        data.x = self.encoder_2(data.x,data.edge_index)
+        data.x = self.decoder_1(data.x,data.edge_index)
+        data.x = self.decoder_2(data.x,data.edge_index)
+        return data.x
+
+# 2 EdgeConv Wider
+class EdgeNetDeeper2BN(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
+        super(EdgeNetDeeper2BN, self).__init__()
+
+        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim*2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim*2),
+                                   nn.Linear(big_dim*2, big_dim*2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim*2),
+                                   nn.Linear(big_dim*2, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, hidden_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(hidden_dim)
+        )
+        decoder_nn_1 = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.ReLU(),
+                                   nn.Linear(big_dim, big_dim*2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim*2)
+        )
+        decoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim*2), big_dim*2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim*2),
+                                   nn.Linear(big_dim*2, big_dim*2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim*2),
+                                   nn.Linear(big_dim*2, input_dim)
+        )
+
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder_1 = EdgeConv(nn=encoder_nn_1,aggr=aggr)
+        self.encoder_2 = EdgeConv(nn=encoder_nn_2,aggr=aggr)
+        self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
+        self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
+
+    def forward(self, data):
+        data.x = self.batchnorm(data.x)
+        data.x = self.encoder_1(data.x,data.edge_index)
+        data.x = self.encoder_2(data.x,data.edge_index)
+        data.x = self.decoder_1(data.x,data.edge_index)
+        data.x = self.decoder_2(data.x,data.edge_index)
+        return data.x
+
+# 3 EdgeConv Wider symmetrical encoder/decoder
+class EdgeNetDeeper3BN(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
+        super(EdgeNetDeeper3BN, self).__init__()
+
+        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        encoder_nn_3 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, hidden_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(hidden_dim)
+        )
+        decoder_nn_1 = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        decoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        decoder_nn_3 = nn.Sequential(nn.Linear(2*(big_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, input_dim)
+        )
+
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder_1 = EdgeConv(nn=encoder_nn_1,aggr=aggr)
+        self.encoder_2 = EdgeConv(nn=encoder_nn_2,aggr=aggr)
+        self.encoder_3 = EdgeConv(nn=encoder_nn_3,aggr=aggr)
+        self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
+        self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
+        self.decoder_3 = EdgeConv(nn=decoder_nn_3,aggr=aggr)
+
+    def forward(self, data):
+        data.x = self.batchnorm(data.x)
+        data.x = self.encoder_1(data.x,data.edge_index)
+        data.x = self.encoder_2(data.x,data.edge_index)
+        data.x = self.encoder_3(data.x,data.edge_index)
+        data.x = self.decoder_1(data.x,data.edge_index)
+        data.x = self.decoder_2(data.x,data.edge_index)
+        data.x = self.decoder_3(data.x,data.edge_index)
+        return data.x
+    
+# 2 EdgeConv Encoder, 1 EdgeConv decoder and thinner
+class EdgeNetDeeper4BN(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
+        super(EdgeNetDeeper4BN, self).__init__()
+
+        encoder_nn_1 = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim)
+        )
+        encoder_nn_2 = nn.Sequential(nn.Linear(2*(big_dim), big_dim // 2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim // 2),
+                                   nn.Linear(big_dim // 2, big_dim // 2),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim // 2),
+                                   nn.Linear(big_dim // 2, hidden_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(hidden_dim)
+        )
+        decoder_nn_1 = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, big_dim),
+                                   nn.ReLU(),
+                                   nn.BatchNorm1d(big_dim),
+                                   nn.Linear(big_dim, input_dim)
+        )
+
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder_1 = EdgeConv(nn=encoder_nn_1,aggr=aggr)
+        self.encoder_2 = EdgeConv(nn=encoder_nn_2,aggr=aggr)
+        self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
+
+    def forward(self, data):
+        data.x = self.batchnorm(data.x)
+        data.x = self.encoder_1(data.x,data.edge_index)
+        data.x = self.encoder_2(data.x,data.edge_index)
+        data.x = self.decoder_1(data.x,data.edge_index)
+        return data.x
+
+# Baseline Edgenet but deeper encoder/decoder
+class EdgeNetDeeper5BN(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
+        super(EdgeNetDeeper5BN, self).__init__()
+        encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(big_dim),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(big_dim),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(big_dim),
+                               nn.Linear(big_dim, hidden_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(hidden_dim)
+        )
+        
+        decoder_nn = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(big_dim),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(big_dim),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.BatchNorm1d(big_dim),
+                               nn.Linear(big_dim, input_dim)
+        )
+        
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder = EdgeConv(nn=encoder_nn,aggr=aggr)
+        self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
+
+    def forward(self, data):
+        data.x = self.batchnorm(data.x)
+        data.x = self.encoder(data.x,data.edge_index)
+        data.x = self.decoder(data.x,data.edge_index)
+        return data.x
+
 # GNN AE using EdgeConv (mean aggregation graph operation) and node embedding.
 class EdgeNetEmbed(nn.Module):
     def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
@@ -386,6 +674,36 @@ class EdgeNetEmbed(nn.Module):
         data.x = self.encoder(data.x,data.edge_index)
         data.x = self.decoder(data.x,data.edge_index)
         data.x = self.deembed_nn(data.x)
+        return data.x
+
+# Using Dynamic Edge Convolution
+class EdgeNetDynamic(torch.nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean'):
+        super(EdgeNetDynamic, self).__init__()
+        encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, hidden_dim),
+                               nn.ReLU(),
+        )
+        
+        decoder_nn = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, input_dim)
+        )
+        
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder = DynamicEdgeConv(nn=encoder_nn,aggr=aggr,k=3)
+        self.decoder = DynamicEdgeConv(nn=decoder_nn,aggr=aggr,k=3)
+    
+    def forward(self, data):
+        data.x = self.batchnorm(data.x)
+        data.x = self.encoder(data.x,data.batch)
+        data.x = self.decoder(data.x,data.batch)
         return data.x
 
 # All GNN MetaLayer components (GAE with global and edge features)
@@ -469,3 +787,23 @@ class GNNAutoEncoder(torch.nn.Module):
         x, edge_attr, u = self.encoder(data.x, data.edge_index, None, None, data.batch)
         x, edge_attr, u = self.decoder(x, data.edge_index, None, u, data.batch)
         return x
+
+# models
+model_list = {
+    0: EdgeNet, 
+    1: EdgeNetDeeper,
+    2: EdgeNetDeeper2,
+    3: EdgeNetDeeper3,
+    4: EdgeNetDeeper4,
+    5: EdgeNetDeeper5,
+    6: AE,
+    7: EdgeNetVAE,
+    8: EdgeNetEmbed,
+    9: GNNAutoEncoder,
+    10: EdgeNetDeeperBN,
+    11: EdgeNetDeeper2BN,
+    12: EdgeNetDeeper3BN,
+    13: EdgeNetDeeper4BN,
+    14: EdgeNetDeeper5BN,
+    15: EdgeNetDynamic
+}

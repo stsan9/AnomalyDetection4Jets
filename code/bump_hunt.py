@@ -28,18 +28,6 @@ random.seed(42)
 import numpy as np
 np.random.seed(seed=42)
 
-# models
-model_list = {0: models.EdgeNet, 
-              1: models.EdgeNetDeeper,
-              2: models.EdgeNetDeeper2,
-              3: models.EdgeNetDeeper3,
-              4: models.EdgeNetDeeper4,
-              5: models.EdgeNetDeeper5,
-              6: models.AE,
-              7: models.EdgeNetVAE,
-              8: models.EdgeNetEmbed,
-              9: models.GNNAutoEncoder}
-
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
         Calculates the invariant mass between 2 jets. Based on the formula:
@@ -55,7 +43,7 @@ def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, 
     return torch.sqrt(torch.square(jet1_e + jet2_e) - torch.square(jet1_px + jet2_px)
                       - torch.square(jet1_py + jet2_py) - torch.square(jet1_pz + jet2_pz))
 
-def sparseloss3d(x,y):
+def chamferloss(x,y):
     """
     Sparse loss function for autoencoders, a permutation invariant euclidean distance function
     from set x -> y and y -> x.
@@ -76,7 +64,7 @@ def sparseloss3d(x,y):
 
 # Reconstruction + KL divergence losses
 def vae_loss(x, y, mu, logvar):
-    BCE = sparseloss3d(x,y)
+    BCE = chamferloss(x,y)
 
     # see Appendix B from VAE paper:
     # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
@@ -246,10 +234,10 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     input_dim = 3 if no_E else 4
 
     # LOAD corresponding model
-    if model_list[model_num] == models.GNNAutoEncoder:  # metalayer
-        model = model_list[model_num]()
+    if models.model_list[model_num] == models.GNNAutoEncoder:  # metalayer
+        model = models.model_list[model_num]()
     else:
-        model = model_list[model_num](input_dim=input_dim, hidden_dim=latent_dim)
+        model = models.model_list[model_num](input_dim=input_dim, hidden_dim=latent_dim)
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
 
     if torch.cuda.is_available():
@@ -261,7 +249,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     loss_ftn = MSELoss(reduction='mean')
     # use sparseloss function instead of default mse
     if use_sparseloss:
-        loss_ftn = sparseloss3d
+        loss_ftn = chamferloss
     elif use_vae:
         loss_ftn = vae_loss
 
@@ -456,7 +444,7 @@ if __name__ == "__main__":
     # display some argument options
     saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
     print(f"model_name options:\n{saved_models}\n")
-    print(f"model_num options:\n{model_list}\n")
+    print(f"model_num options:\n{models.model_list}\n")
 
     # process arguments
     import argparse
