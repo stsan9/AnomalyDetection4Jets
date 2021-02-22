@@ -164,8 +164,8 @@ class GraphDataset(Dataset):
                 signal_bit = all_events[i][-1]
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
-                # save [px, py, pz, e] of particles as node attributes and target
-                x = torch.tensor(particles[:,:4], dtype=torch.float)
+                # save particles as node attributes and target
+                x = torch.tensor(particles, dtype=torch.float)
                 # y = x
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
