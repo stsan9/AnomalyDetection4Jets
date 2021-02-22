@@ -9,28 +9,7 @@ from torch.utils.data import random_split
 import os.path as osp
 from graph_data import GraphDataset
 import models
-
-
-# darkflow loss function
-def sparseloss3d(x,y):
-    nparts = x.shape[0]
-    dist = torch.pow(torch.cdist(x,y),2)
-    in_dist_out = torch.min(dist,dim=0)
-    out_dist_in = torch.min(dist,dim=1)
-    loss = torch.sum(in_dist_out.values + out_dist_in.values) / nparts
-    return loss
-
-# Reconstruction + KL divergence losses
-def vae_loss(x, y, mu, logvar):
-    BCE = sparseloss3d(x,y)
-
-    # see Appendix B from VAE paper:
-    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-    # https://arxiv.org/abs/1312.6114
-    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-
-    return BCE + KLD
+from loss_util import chamfer_loss, vae_loss
 
 # train and test helper functions
 @torch.no_grad()
@@ -39,7 +18,7 @@ def test(model, loader, total, batch_size, no_E = False, use_sparseloss = False)
     
     loss_ftn = nn.MSELoss(reduction='mean')
     if (use_sparseloss == True):
-        loss_ftn = sparseloss3d
+        loss_ftn = chamfer_loss
 
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
@@ -62,7 +41,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False, use_sparsel
     
     loss_ftn = nn.MSELoss(reduction='mean')
     if (use_sparseloss == True):
-        loss_ftn = sparseloss3d
+        loss_ftn = chamfer_loss
 
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
@@ -84,7 +63,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False, use_sparsel
     
     return sum_loss/(i+1)
 
-# variations of test() and train() for sparseloss (no padding; stochastic gradient descent)
+# variations of test() and train() for sparseloss (no padding)
 @torch.no_grad()
 def single_steps_test(model, loader, total, batch_size, no_E = False, use_sparseloss = True, use_vae = False):
     model.eval()
@@ -105,7 +84,7 @@ def single_steps_test(model, loader, total, batch_size, no_E = False, use_sparse
                 batch_loss_item = vae_loss(batch_output, y, mu, log_var).item()
             elif use_sparseloss == True:
                 batch_output = model(data)
-                batch_loss_item = sparseloss3d(batch_output, y).item()
+                batch_loss_item = chamfer_loss(batch_output, y).item()
             sum_loss += batch_loss_item
             t.set_description("loss = %.5f" % (batch_loss_item))
             t.refresh() # to show immediately the update
@@ -132,7 +111,7 @@ def sgd_train(model, optimizer, loader, total, batch_size, no_E = False, use_spa
                 batch_loss = vae_loss(batch_output, y, mu, log_var)
             elif use_sparseloss == True:
                 batch_output = model(data)
-                batch_loss = sparseloss3d(batch_output, y)
+                batch_loss = chamfer_loss(batch_output, y)
             batch_loss.backward()
             batch_loss_item = batch_loss.item()
             t.set_description("loss = %.5f" % batch_loss_item)
