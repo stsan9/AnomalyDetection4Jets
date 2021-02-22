@@ -46,7 +46,7 @@ def test(model, loader, total, batch_size, no_E = False, use_sparseloss = False)
     for i,data in t:
         data = data.to(device)
         if (no_E == True):
-            data.x = data.x[:,:-1]
+            data.x = data.x[:,:3]
         y = data.x # the model will overwrite data.x, so save a copy
         y = y.contiguous()
         batch_output = model(data)
@@ -69,7 +69,7 @@ def train(model, optimizer, loader, total, batch_size, no_E = False, use_sparsel
     for i,data in t:
         data = data.to(device)
         if (no_E == True):
-            data.x = data.x[:,:-1]
+            data.x = data.x[:,:3]
         y = data.x # the model will overwrite data.x, so save a copy
         y = y.contiguous()
         optimizer.zero_grad()
@@ -97,7 +97,7 @@ def single_steps_test(model, loader, total, batch_size, no_E = False, use_sparse
                 continue
             data = data.to(device)
             if (no_E == True):
-                data.x = data.x[:,:-1]
+                data.x = data.x[:,:3]
             y = data.x
             y = y.contiguous()
             if use_vae == True:
@@ -123,7 +123,7 @@ def sgd_train(model, optimizer, loader, total, batch_size, no_E = False, use_spa
                 continue
             data = data.to(device)
             if (no_E == True):
-                data.x = data.x[:,:-1]
+                data.x = data.x[:,:3]
             y = data.x
             y = y.contiguous()
             optimizer.zero_grad()
