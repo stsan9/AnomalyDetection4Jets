@@ -24,7 +24,9 @@ def test(model, loader, total, batch_size, loss_ftn, no_E = False):
         if data.x.shape[0] <= 1:    # skip strange jets
             continue
         data = data.to(device)
-        if (no_E == True):
+        if (loss_ftn == loss_util.emd):
+            data.x = data.x[:,4:-1]
+        elif (no_E == True):
             data.x = data.x[:,:3]
         y = data.x # the model will overwrite data.x, so save a copy
         y = y.contiguous()
@@ -49,7 +51,9 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn, no_E = False):
         if data.x.shape[0] <= 1:    # skip strange jets
             continue
         data = data.to(device)
-        if (no_E == True):
+        if (loss_ftn == loss_util.emd):
+            data.x = data.x[:,4:-1]
+        elif (no_E == True):
             data.x = data.x[:,:3]
         y = data.x # the model will overwrite data.x, so save a copy
         y = y.contiguous()
@@ -78,17 +82,17 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
+    parser.add_argument("--input-dir", type=str, help="location of dataset", required=True)
     parser.add_argument("--box_num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
     parser.add_argument("--lat_dim", type=int, help="latent space size", default=2, required=False)
     parser.add_argument("--no_E", action='store_true', 
-                        help="Toggle to remove energy from training and testing. Default False.", default=False, required=False)
+                        help="toggle to remove energy from training and testing", default=False, required=False)
     parser.add_argument("--metalayer", action='store_true', 
-                        help="Toggle to use metalayer model. Defaulted to edgeconv.", default=False, required=False)
-    parser.add_argument("--embed", action='store_true', help="Toggle to use node embedded GAE.", default=False, required=False)
-    parser.add_argument("--model_num", type=int, help="Model number", default=-1, required=True)
-    parser.add_argument("--batch_size", type=int, help="Batch size", default=2, required=False)
-    parser.add_argument("--lr", type=float, help="Learning rate", default=1e-3, required=False)
-    parser.add_argument("--loss", choices=["chamfer_loss","emd","vae_loss","mse"], help="Loss function" default="mse")
+                        help="toggle to use metalayer model", default=False, required=False)
+    parser.add_argument("--model_num", type=int, help="model number", default=-1, required=True)
+    parser.add_argument("--batch_size", type=int, help="batch size", default=2, required=False)
+    parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
+    parser.add_argument("--loss", choices=["chamfer_loss","emd","vae_loss","mse"], help="loss function" default="mse")
     args = parser.parse_args()
     batch_size = args.batch_size
 
@@ -99,14 +103,7 @@ if __name__ == "__main__":
         loss_ftn = nn.MSELoss(reduction='mean')
 
     # get dataset and split
-    if args.box_num == 0:
-        gdata = GraphDataset(root='/anomalyvol/data/gnn_node_global_merge', bb=0) 
-    elif args.box_num == 1:
-        gdata = GraphDataset(root='/anomalyvol/data/bb_train_sets/bb1', bb=1) 
-    elif args.box_num == 2:
-        gdata = GraphDataset(root='/anomalyvol/data/bb_train_sets/bb2', bb=2) 
-    elif args.box_num == 4:
-        gdata = GraphDataset(root='/anomalyvol/data/rnd_set', bb=4)
+    gdata = GraphDataset(root=osp.join(args.input_dir, bb=args.box_num)
     train_dataset, valid_dataset, test_dataset = random_split(gdata, [fulllen-2*tv_num,tv_num,tv_num])
     if args.loss == "mse":  # collate dataset
         train_loader = DataListLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
