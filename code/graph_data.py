@@ -37,6 +37,10 @@ def __repr__(obj):
         return 'None'
     return re.sub('(<.*?)\\s.*(>)', r'\1\2', obj.__repr__())
 
+def collate(items): # collate function for data loaders (transforms list of lists to list)
+    l = sum(items, [])
+    return Batch.from_data_list(l)
+
 
 class GraphDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None,
@@ -105,6 +109,7 @@ class GraphDataset(Dataset):
         rows = all_events.shape[0]
         cols = all_events.shape[1]
         datas = []
+        # iterate over events
         for i in range(rows):
             if i%self.n_events_merge == 0:
                 datas = []
