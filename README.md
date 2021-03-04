@@ -17,4 +17,4 @@ Dataset comes from the [LHC Olympics 2020 Anomaly Detection Challenge](https://l
 - [ ] Normalizing Flow
 - [ ] Train directly on R&D dataset with different amounts of injected signal and generate ROC curves
 - [ ] Speed up model training
-- [ ] Experiment with Hungarian Loss
+- [ ] Integrate EMD loss NN https://github.com/stsan9/emd-training
