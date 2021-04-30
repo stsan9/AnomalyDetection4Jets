@@ -4,9 +4,12 @@ import sys
 
 class LossFunction:
     def __init__(self, lossname, emd_modname="Symmetric1k.best.pth"):
-        loss = getattr(self, lossname)
-        if lossname == 'emd_loss':
-            self.emd_model = load_emd_model(emd_modname)
+        if lossname == 'mse':
+            loss = torch.nn.MSELoss(reduction='mean')
+        else:
+            loss = getattr(self, lossname)
+            if lossname == 'emd_loss':
+                self.emd_model = load_emd_model(emd_modname)
         self.name = lossname
         self.loss_ftn = loss
 
