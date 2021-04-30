@@ -10,26 +10,42 @@ import os.path as osp
 from graph_data import GraphDataset, collate
 import models
 import loss_util
+import emd_models
 
 torch.manual_seed(0)
 
+def load_emd_model(modpath="/anomalyvol/emd_models/Symmetric1k.best.pth"):
+    emd_model = emd_models.SymmetricDDEdgeNet()
+    try:
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
+        else:
+            model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
+        logging.debug(f"Using emd model: {modpath}")
+    except:
+        exit(f"Emd model not present at: {modpath}")
+    return emd_model
+
 # train and test helper functions
 @torch.no_grad()
-def test(model, loader, total, batch_size, loss_ftn, no_E = False):
+def test(model, loader, total, batch_size, loss_ftn, no_E = False, emd_model=None):
     model.eval()
-    
+
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     for i,data in t:
         if data.x.shape[0] <= 1:    # skip strange jets
             continue
         data = data.to(device)
+        # format data
         if (loss_ftn == loss_util.emd):
-            data.x = data.x[:,4:-1]
+            data.x = data.x[:,4:-1] # pt, eta, phi
         elif (no_E == True):
-            data.x = data.x[:,:3]
-        y = data.x # the model will overwrite data.x, so save a copy
+            data.x = data.x[:,:3]   # px, py, pz
+        y = data.x
         y = y.contiguous()
+
+        # forward pass and loss calc
         if loss_ftn == loss_util.vae_loss:
             batch_output, mu, log_var = model(data)
             batch_loss_item = loss_ftn(batch_output, y, mu, log_var).item()
@@ -42,35 +58,40 @@ def test(model, loader, total, batch_size, loss_ftn, no_E = False):
 
     return sum_loss/(i+1)
 
-def train(model, optimizer, loader, total, batch_size, loss_ftn, no_E = False):
+def train(model, optimizer, loader, total, batch_size, loss_ftn, no_E = False, emd_model=None):
     model.train()
-    
+
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     for i,data in t:
         if data.x.shape[0] <= 1:    # skip strange jets
             continue
         data = data.to(device)
+        # format data
         if (loss_ftn == loss_util.emd):
             data.x = data.x[:,4:-1]
         elif (no_E == True):
             data.x = data.x[:,:3]
-        y = data.x # the model will overwrite data.x, so save a copy
+        y = data.x
         y = y.contiguous()
         optimizer.zero_grad()
+
+        # forward pass and loss calc
         if loss_ftn == loss_util.vae_loss:
             batch_output, mu, log_var = model(data)
             batch_loss = loss_ftn(batch_output, y, mu, log_var)
         else:
             batch_output = model(data)
             batch_loss = loss_ftn(batch_output, y)
+
+        # update
         batch_loss.backward()
         batch_loss_item = batch_loss.item()
         t.set_description("loss = %.5f" % batch_loss_item)
         t.refresh() # to show immediately the update
         sum_loss += batch_loss_item
         optimizer.step()
-    
+
     return sum_loss/(i+1)
 
 if __name__ == "__main__":
@@ -97,10 +118,14 @@ if __name__ == "__main__":
     batch_size = args.batch_size
 
     # specify loss function
-    if args.loss != mse:
+    emd_model=None
+    if args.loss == "mse":
+        loss_ftn = nn.MSELoss(reduction='mean')
+    elif args.loss == "emd":
+        emd_model = load_emd_model()
         loss_ftn = getattr(loss_util, args.loss)
     else:
-        loss_ftn = nn.MSELoss(reduction='mean')
+        loss_ftn = getattr(loss_util, args.loss)
 
     # get dataset and split
     gdata = GraphDataset(root=osp.join(args.input_dir, bb=args.box_num)

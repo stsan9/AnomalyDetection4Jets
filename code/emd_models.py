@@ -63,7 +63,7 @@ class DeeperDynamicEdgeNet(nn.Module):
         return self.outnn(data.u)
 
 class SymmetricDDEdgeNet(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=256, global_dim=2, output_dim=1, k=16, aggr='mean'):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean'):
         super(SymmetricDDEdgeNet, self).__init__()
         self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr) 
 

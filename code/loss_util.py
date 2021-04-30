@@ -1,4 +1,5 @@
 import torch
+"""TODO: turn into class instead"""
 
 def chamfer_loss(x,y):
     nparts = x.shape[0]
@@ -19,3 +20,13 @@ def vae_loss(x, y, mu, logvar):
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     return BCE + KLD
+
+def emd(x, y, emd_model):
+    model.eval()
+    # concatenate column of 1s to one jet and -1 to other jet
+    x = torch.cat((x,torch.ones(len(x),1)), 1)
+    y = torch.cat((y,torch.ones(len(y),1) * -1), 1)
+    jet_pair = torch.cat((x,y),0)
+    # get emd between x and y
+    emd = emd_model(jet_pair)
+    return emd
