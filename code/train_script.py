@@ -9,22 +9,10 @@ from torch.utils.data import random_split
 import os.path as osp
 from graph_data import GraphDataset, collate
 import models
-import loss_util
+from loss_util import LossFunction
 import emd_models
 
 torch.manual_seed(0)
-
-def load_emd_model(modpath="/anomalyvol/emd_models/Symmetric1k.best.pth"):
-    emd_model = emd_models.SymmetricDDEdgeNet()
-    try:
-        if torch.cuda.is_available():
-            model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
-        else:
-            model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
-        logging.debug(f"Using emd model: {modpath}")
-    except:
-        exit(f"Emd model not present at: {modpath}")
-    return emd_model
 
 # train and test helper functions
 @torch.no_grad()
@@ -113,19 +101,12 @@ if __name__ == "__main__":
     parser.add_argument("--model_num", type=int, help="model number", default=-1, required=True)
     parser.add_argument("--batch_size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
-    parser.add_argument("--loss", choices=["chamfer_loss","emd","vae_loss","mse"], help="loss function" default="mse")
+    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function" default="mse")
     args = parser.parse_args()
     batch_size = args.batch_size
 
     # specify loss function
-    emd_model=None
-    if args.loss == "mse":
-        loss_ftn = nn.MSELoss(reduction='mean')
-    elif args.loss == "emd":
-        emd_model = load_emd_model()
-        loss_ftn = getattr(loss_util, args.loss)
-    else:
-        loss_ftn = getattr(loss_util, args.loss)
+    loss_ftn_obj = LossFunction(args.loss)
 
     # get dataset and split
     gdata = GraphDataset(root=osp.join(args.input_dir, bb=args.box_num)
