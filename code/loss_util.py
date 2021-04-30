@@ -37,8 +37,6 @@ class LossFunction:
     # Reconstruction + KL divergence losses
     def vae_loss(self, x, y, mu, logvar):
         BCE = chamfer_loss(x,y)
-        # see Appendix B from VAE paper:
-        # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
         # https://arxiv.org/abs/1312.6114
         # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
         KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
@@ -46,7 +44,7 @@ class LossFunction:
         return BCE + KLD
 
     def emd_loss(self, x, y):
-        model.eval()
+        self.emd_model.eval()
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1)), 1)
         y = torch.cat((y,torch.ones(len(y),1) * -1), 1)
