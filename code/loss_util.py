@@ -50,5 +50,6 @@ class LossFunction:
         y = torch.cat((y,torch.ones(len(y),1) * -1), 1)
         jet_pair = torch.cat((x,y),0)
         # get emd between x and y
-        emd = self.emd_model(jet_pair)
+        out = self.emd_model(jet_pair)
+        emd = out[0]    # ignore other model outputs
         return emd

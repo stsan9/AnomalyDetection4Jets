@@ -777,9 +777,9 @@ class NodeDecoder(torch.nn.Module):
         out = torch.cat([x, out, u[batch]], dim=1)
         return self.node_mlp_2(out)
 
-class GNNAutoEncoder(torch.nn.Module):
+class MetaLayerGAE(torch.nn.Module):
     def __init__(self):
-        super(GNNAutoEncoder, self).__init__()
+        super(MetaLayerGAE, self).__init__()
         self.encoder = MetaLayer(EdgeEncoder(), NodeEncoder(), GlobalEncoder())
         self.decoder = MetaLayer(EdgeDecoder(), NodeDecoder(), None)
     
@@ -789,21 +789,19 @@ class GNNAutoEncoder(torch.nn.Module):
         return x
 
 # models
-model_list = {
-    0: EdgeNet, 
-    1: EdgeNetDeeper,
-    2: EdgeNetDeeper2,
-    3: EdgeNetDeeper3,
-    4: EdgeNetDeeper4,
-    5: EdgeNetDeeper5,
-    6: AE,
-    7: EdgeNetVAE,
-    8: EdgeNetEmbed,
-    9: GNNAutoEncoder,
-    10: EdgeNetDeeperBN,
-    11: EdgeNetDeeper2BN,
-    12: EdgeNetDeeper3BN,
-    13: EdgeNetDeeper4BN,
-    14: EdgeNetDeeper5BN,
-    15: EdgeNetDynamic
-}
+model_list = ['EdgeNet',
+              'EdgeNetDeeper',
+              'EdgeNetDeeper2',
+              'EdgeNetDeeper3',
+              'EdgeNetDeeper4',
+              'EdgeNetDeeper5',
+              'AE',
+              'EdgeNetVAE',
+              'EdgeNetEmbed',
+              'MetaLayerGAE
+              'EdgeNetDeeperBN',
+              'EdgeNetDeeper2BN',
+              'EdgeNetDeeper3BN',
+              'EdgeNetDeeper4BN',
+              'EdgeNetDeeper5BN',
+              'EdgeNetDynamic']

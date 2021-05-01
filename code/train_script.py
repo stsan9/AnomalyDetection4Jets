@@ -1,16 +1,17 @@
 import glob
-import torch
-import tqdm
 import math
+import tqdm
+import torch
 import torch.nn as nn
+import os.path as osp
+from torch.utils.data import random_split
 from torch_geometric.nn import EdgeConv, global_mean_pool
 from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
-from torch.utils.data import random_split
-import os.path as osp
-from graph_data import GraphDataset, collate
+
 import models
-from loss_util import LossFunction
 import emd_models
+from loss_util import LossFunction
+from graph_data import GraphDataset
 
 torch.manual_seed(0)
 
@@ -25,6 +26,7 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
         if data.x.shape[0] <= 1:    # skip strange jets
             continue
         data = data.to(device)
+
         # format data
         if (loss_obj.name == "emd_loss"):
             data.x = data.x[:,4:-1] # pt, eta, phi
@@ -33,7 +35,7 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
         y = data.x
         y = y.contiguous()
 
-        # forward pass and loss calc
+        # forward and loss
         if loss_obj.name == "vae_loss":
             batch_output, mu, log_var = model(data)
             batch_loss_item = loss_obj.loss_ftn(batch_output, y, mu, log_var).item()
@@ -55,6 +57,7 @@ def train(model, optimizer, loader, total, batch_size, loss_obj, no_E = False):
         if data.x.shape[0] <= 1:    # skip strange jets
             continue
         data = data.to(device)
+
         # format data
         if (loss_obj.name == "emd_loss"):
             data.x = data.x[:,4:-1]
@@ -86,7 +89,6 @@ if __name__ == "__main__":
     # display some argument options
     saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
     print(f"saved mod_name's:\n{saved_models}\n")
-    print(f"model_num options:\n{models.model_list}\n")
 
     import argparse
     parser = argparse.ArgumentParser()
@@ -96,12 +98,10 @@ if __name__ == "__main__":
     parser.add_argument("--lat_dim", type=int, help="latent space size", default=2, required=False)
     parser.add_argument("--no_E", action='store_true', 
                         help="toggle to remove energy from training and testing", default=False, required=False)
-    parser.add_argument("--metalayer", action='store_true', 
-                        help="toggle to use metalayer model", default=False, required=False)
-    parser.add_argument("--model_num", type=int, help="model number", default=-1, required=True)
+    parser.add_argument("--model", choices=models.model_list, help="model selection" required=True)
     parser.add_argument("--batch_size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
-    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function" default="mse")
+    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function" required=True)
     args = parser.parse_args()
     batch_size = args.batch_size
 
@@ -151,14 +151,10 @@ if __name__ == "__main__":
     patience = 10
     device = 'cuda:0'
     model_fname = args.mod_name
-    if args.metalayer:
-        print("Using metalayer model")
+    if args.model == 'MetaLayerGAE':
         model = models.GNNAutoEncoder().to(device)
-    elif args.model_num != -1:
-        model = models.model_list[args.model_num](input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     else:
-        print("Using default EdgeConv")
-        model = models.EdgeNet(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
+        model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     # load in model
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
