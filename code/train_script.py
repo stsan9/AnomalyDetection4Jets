@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("--lat_dim", type=int, help="latent space size", default=2, required=False)
     parser.add_argument("--no_E", action='store_true', 
                         help="toggle to remove energy from training and testing", default=False, required=False)
-    parser.add_argument("--model", choices=models.model_list, help="model selection" required=True)
+    parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
     parser.add_argument("--batch_size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
     parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
