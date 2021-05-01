@@ -101,7 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--model", choices=models.model_list, help="model selection" required=True)
     parser.add_argument("--batch_size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
-    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function" required=True)
+    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
     args = parser.parse_args()
     batch_size = args.batch_size
 
