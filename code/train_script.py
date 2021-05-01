@@ -92,14 +92,14 @@ if __name__ == "__main__":
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mod_name", type=str, help="model name for saving and loading", required=True)
+    parser.add_argument("--mod-name", type=str, help="model name for saving and loading", required=True)
     parser.add_argument("--input-dir", type=str, help="location of dataset", required=True)
-    parser.add_argument("--box_num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
-    parser.add_argument("--lat_dim", type=int, help="latent space size", default=2, required=False)
-    parser.add_argument("--no_E", action='store_true', 
+    parser.add_argument("--box-num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
+    parser.add_argument("--lat-dim", type=int, help="latent space size", default=2, required=False)
+    parser.add_argument("--no-E", action='store_true', 
                         help="toggle to remove energy from training and testing", default=False, required=False)
     parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
-    parser.add_argument("--batch_size", type=int, help="batch size", default=2, required=False)
+    parser.add_argument("--batch-size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
     parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
     args = parser.parse_args()
