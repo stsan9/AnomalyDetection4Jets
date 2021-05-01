@@ -21,7 +21,6 @@ class LossFunction:
             emd_model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
         else:
             emd_model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
-        logging.debug(f"Using emd model: {modpath}")
         return emd_model
 
     def chamfer_loss(self, x,y):
