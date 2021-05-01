@@ -109,7 +109,7 @@ if __name__ == "__main__":
     loss_ftn_obj = LossFunction(args.loss)
 
     # get dataset and split
-    gdata = GraphDataset(root=osp.join(args.input_dir, bb=args.box_num)
+    gdata = GraphDataset(root=osp.join(args.input_dir, bb=args.box_num))
     # merge data from separate files into one contiguous array
     bag = []
     for g in gdata:
