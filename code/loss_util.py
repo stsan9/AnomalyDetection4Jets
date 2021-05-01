@@ -1,5 +1,6 @@
 import torch
 import os.path as osp
+import emd_models
 import sys
 
 class LossFunction:
