@@ -9,7 +9,7 @@ class LossFunction:
         else:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
-                self.emd_model = load_emd_model(emd_modname)
+                self.emd_model = self.load_emd_model(emd_modname)
         self.name = lossname
         self.loss_ftn = loss
 
