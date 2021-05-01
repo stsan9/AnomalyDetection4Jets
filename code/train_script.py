@@ -2,6 +2,7 @@ import glob
 import math
 import tqdm
 import torch
+import random
 import torch.nn as nn
 import os.path as osp
 from torch.utils.data import random_split
@@ -41,7 +42,7 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
             batch_loss_item = loss_obj.loss_ftn(batch_output, y, mu, log_var).item()
         else:
             batch_output = model(data)
-            batch_loss_item = loss_obj.loss_ftn(loss_ftn_output, y).item()
+            batch_loss_item = loss_obj.loss_ftn(batch_output, y).item()
         sum_loss += batch_loss_item
         t.set_description("loss = %.5f" % (batch_loss_item))
         t.refresh() # to show immediately the update
@@ -114,10 +115,6 @@ if __name__ == "__main__":
     bag = []
     for g in gdata:
         bag += g
-    if args.remove_dupes:
-        bag = remove_dupes(bag)
-    elif args.pair_dupes:
-        bag = pair_dupes(bag)
     random.Random(0).shuffle(bag)
     # 80:10:10 split datasets
     fulllen = len(bag)
@@ -126,10 +123,6 @@ if __name__ == "__main__":
     train_dataset = bag[:train_len]
     valid_dataset = bag[train_len:train_len + tv_len]
     test_dataset  = bag[train_len + tv_len:]
-    if args.pair_dupes:
-        train_dataset = sum(train_dataset, [])
-        valid_dataset = sum(valid_dataset, [])
-        test_dataset  = sum(test_dataset, [])
     train_samples = len(train_dataset)
     valid_samples = len(valid_dataset)
     test_samples = len(test_dataset)
@@ -140,7 +133,7 @@ if __name__ == "__main__":
 
     # create model
     no_E = args.no_E
-    input_dim = 3 if args.no_E else 4
+    input_dim = 3 if (args.no_E or args.loss=='emd_loss') else 4
     big_dim = 32
     hidden_dim = args.lat_dim
     fulllen = len(gdata)

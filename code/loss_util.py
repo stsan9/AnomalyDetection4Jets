@@ -42,9 +42,10 @@ class LossFunction:
 
     def emd_loss(self, x, y):
         self.emd_model.eval()
+        device = x.device.type
         # concatenate column of 1s to one jet and -1 to other jet
-        x = torch.cat((x,torch.ones(len(x),1)), 1)
-        y = torch.cat((y,torch.ones(len(y),1) * -1), 1)
+        x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
+        y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
         jet_pair = torch.cat((x,y),0)
         # get emd between x and y
         out = self.emd_model(jet_pair)
