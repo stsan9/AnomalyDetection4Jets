@@ -798,7 +798,7 @@ model_list = ['EdgeNet',
               'AE',
               'EdgeNetVAE',
               'EdgeNetEmbed',
-              'MetaLayerGAE
+              'MetaLayerGAE',
               'EdgeNetDeeperBN',
               'EdgeNetDeeper2BN',
               'EdgeNetDeeper3BN',
