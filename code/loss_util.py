@@ -17,14 +17,11 @@ class LossFunction:
     def load_emd_model(self, modname):
         emd_model = emd_models.SymmetricDDEdgeNet()
         modpath = osp.join("/anomalyvol/emd_models/", modname)
-        try:
-            if torch.cuda.is_available():
-                model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
-            else:
-                model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
-            logging.debug(f"Using emd model: {modpath}")
-        except:
-            exit(f"Emd model not present at: {modpath}")
+        if torch.cuda.is_available():
+            model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
+        else:
+            model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
+        logging.debug(f"Using emd model: {modpath}")
         return emd_model
 
     def chamfer_loss(self, x,y):
