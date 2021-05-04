@@ -40,6 +40,9 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
         if loss_obj.name == "vae_loss":
             batch_output, mu, log_var = model(data)
             batch_loss_item = loss_obj.loss_ftn(batch_output, y, mu, log_var).item()
+        elif loss_obj.name == "emd_loss":
+            batch_output = model(data)
+            batch_loss = loss_obj.loss_ftn(batch_output, y, data.batch)
         else:
             batch_output = model(data)
             batch_loss_item = loss_obj.loss_ftn(batch_output, y).item()
@@ -72,6 +75,9 @@ def train(model, optimizer, loader, total, batch_size, loss_obj, no_E = False):
         if loss_obj.name == "vae_loss":
             batch_output, mu, log_var = model(data)
             batch_loss = loss_obj.loss_ftn(batch_output, y, mu, log_var)
+        elif loss_obj.name == "emd_loss":
+            batch_output = model(data)
+            batch_loss = loss_obj.loss_ftn(batch_output, y, data.batch)
         else:
             batch_output = model(data)
             batch_loss = loss_obj.loss_ftn(batch_output, y)

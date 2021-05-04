@@ -2,6 +2,7 @@ import torch
 import os.path as osp
 import emd_models
 import sys
+from torch_geometric.data import Data
 
 class LossFunction:
     def __init__(self, lossname, emd_modname="Symmetric1k.best.pth"):
@@ -40,7 +41,8 @@ class LossFunction:
 
         return BCE + KLD
 
-    def emd_loss(self, x, y):
+    def emd_loss(self, x, y, batch):
+        import pdb; pdb.set_trace();
         self.emd_model.eval()
         device = x.device.type
         # concatenate column of 1s to one jet and -1 to other jet
