@@ -1,4 +1,5 @@
 import torch
+import torch_scatter
 import os.path as osp
 import emd_models
 import sys
@@ -42,14 +43,18 @@ class LossFunction:
         return BCE + KLD
 
     def emd_loss(self, x, y, batch):
-        import pdb; pdb.set_trace();
         self.emd_model.eval()
         device = x.device.type
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
         jet_pair = torch.cat((x,y),0)
+        # create data object for emd model
+        Ei = torch_scatter.scatter(src=x[:,0],index=batch)
+        Ey = torch_scatter.scatter(src=y[:,0],index=batch)
+        u = torch.cat((Ei.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
+        data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u)
         # get emd between x and y
-        out = self.emd_model(jet_pair)
+        out = self.emd_model(data)
         emd = out[0]    # ignore other model outputs
-        return emd
+        return emd.mean()

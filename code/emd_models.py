@@ -1,4 +1,3 @@
-import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -70,7 +69,7 @@ class SymmetricDDEdgeNet(nn.Module):
     def forward(self, data):
         # dual copies with different orderings
         data_1 = data
-        data_2 = copy.deepcopy(data)
+        data_2 = data.clone()
         data_2.x[:,-1] *= -1
 
         emd_1 = self.EdgeNet(data_1)
