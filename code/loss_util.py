@@ -6,18 +6,18 @@ import sys
 from torch_geometric.data import Data
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname="Symmetric1k.best.pth"):
+    def __init__(self, lossname, emd_modname="Symmetric1k.best.pth", device='cuda:0'):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         else:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
-                self.emd_model = self.load_emd_model(emd_modname)
+                self.emd_model = self.load_emd_model(emd_modname,device)
         self.name = lossname
         self.loss_ftn = loss
 
-    def load_emd_model(self, modname):
-        emd_model = emd_models.SymmetricDDEdgeNet()
+    def load_emd_model(self, modname, device):
+        emd_model = emd_models.SymmetricDDEdgeNet(device=device)
         modpath = osp.join("/anomalyvol/emd_models/", modname)
         if torch.cuda.is_available():
             emd_model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
@@ -56,5 +56,5 @@ class LossFunction:
         data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u)
         # get emd between x and y
         out = self.emd_model(data)
-        emd = out[0]    # ignore other model outputs
+        emd = torch.square(out[0])    # ignore other model outputs
         return emd.mean()
