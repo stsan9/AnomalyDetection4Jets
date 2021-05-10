@@ -42,7 +42,7 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
             batch_loss_item = loss_obj.loss_ftn(batch_output, y, mu, log_var).item()
         elif loss_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss = loss_obj.loss_ftn(batch_output, y, data.batch)
+            batch_loss_item = loss_obj.loss_ftn(batch_output, y, data.batch).item()
         else:
             batch_output = model(data)
             batch_loss_item = loss_obj.loss_ftn(batch_output, y).item()
@@ -112,9 +112,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     batch_size = args.batch_size
 
-    # specify loss function
-    loss_ftn_obj = LossFunction(args.loss)
-
     # get dataset and split
     gdata = GraphDataset(root=args.input_dir, bb=args.box_num)
     # merge data from separate files into one contiguous array
@@ -148,7 +145,7 @@ if __name__ == "__main__":
     n_epochs = 200
     lr = args.lr
     patience = 10
-    device = 'cuda:0'
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model_fname = args.mod_name
     if args.model == 'MetaLayerGAE':
         model = models.GNNAutoEncoder().to(device)
@@ -166,6 +163,9 @@ if __name__ == "__main__":
     except:
         print("Creating new model")
 
+    # specify loss function
+    loss_ftn_obj = LossFunction(args.loss, device=device)
+
     # Training loop
     stale_epochs = 0
     best_valid_loss = 9999999
@@ -174,7 +174,7 @@ if __name__ == "__main__":
 
     for epoch in range(0, n_epochs):
         loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
-        valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn, no_E)
+        valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
         print('               Validation Loss: {:.4f}'.format(valid_loss))
 
