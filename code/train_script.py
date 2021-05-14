@@ -18,7 +18,7 @@ torch.manual_seed(0)
 
 # train and test helper functions
 @torch.no_grad()
-def test(model, loader, total, batch_size, loss_obj, no_E = False):
+def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
     model.eval()
 
     sum_loss = 0.
@@ -29,7 +29,7 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
         data = data.to(device)
 
         # format data
-        if (loss_obj.name == "emd_loss"):
+        if (loss_ftn_obj.name == "emd_loss"):
             data.x = data.x[:,4:-1] # pt, eta, phi
         elif (no_E == True):
             data.x = data.x[:,:3]   # px, py, pz
@@ -37,22 +37,22 @@ def test(model, loader, total, batch_size, loss_obj, no_E = False):
         y = y.contiguous()
 
         # forward and loss
-        if loss_obj.name == "vae_loss":
+        if loss_ftn_obj.name == "vae_loss":
             batch_output, mu, log_var = model(data)
-            batch_loss_item = loss_obj.loss_ftn(batch_output, y, mu, log_var).item()
-        elif loss_obj.name == "emd_loss":
+            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
+        elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss_item = loss_obj.loss_ftn(batch_output, y, data.batch).item()
+            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, data.batch).item()
         else:
             batch_output = model(data)
-            batch_loss_item = loss_obj.loss_ftn(batch_output, y).item()
+            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y).item()
         sum_loss += batch_loss_item
         t.set_description("loss = %.5f" % (batch_loss_item))
         t.refresh() # to show immediately the update
 
     return sum_loss/(i+1)
 
-def train(model, optimizer, loader, total, batch_size, loss_obj, no_E = False):
+def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = False):
     model.train()
 
     sum_loss = 0.
@@ -63,7 +63,7 @@ def train(model, optimizer, loader, total, batch_size, loss_obj, no_E = False):
         data = data.to(device)
 
         # format data
-        if (loss_obj.name == "emd_loss"):
+        if (loss_ftn_obj.name == "emd_loss"):
             data.x = data.x[:,4:-1]
         elif (no_E == True):
             data.x = data.x[:,:3]
@@ -72,15 +72,15 @@ def train(model, optimizer, loader, total, batch_size, loss_obj, no_E = False):
         optimizer.zero_grad()
 
         # forward pass and loss calc
-        if loss_obj.name == "vae_loss":
+        if loss_ftn_obj.name == "vae_loss":
             batch_output, mu, log_var = model(data)
-            batch_loss = loss_obj.loss_ftn(batch_output, y, mu, log_var)
-        elif loss_obj.name == "emd_loss":
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
+        elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss = loss_obj.loss_ftn(batch_output, y, data.batch)
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
         else:
             batch_output = model(data)
-            batch_loss = loss_obj.loss_ftn(batch_output, y)
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
 
         # update
         batch_loss.backward()
@@ -93,10 +93,6 @@ def train(model, optimizer, loader, total, batch_size, loss_obj, no_E = False):
     return sum_loss/(i+1)
 
 if __name__ == "__main__":
-    # display some argument options
-    saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
-    print(f"saved mod_name's:\n{saved_models}\n")
-
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mod-name", type=str, help="model name for saving and loading", required=True)

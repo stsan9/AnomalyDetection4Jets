@@ -1,32 +1,39 @@
 """
 Generate graphs for bump hunting on invariant mass.
+
+example:
+python bump_hunt.py --model-name EdgeNet_emd_1k --model EdgeNet --loss emd_loss --box-num 1
 """
-import glob
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-import torch
-import os.path as osp
-import models
-from graph_data import GraphDataset
-from torch_geometric.data import Data, DataListLoader, Batch
-from torch.utils.data import random_split
-from torch.nn import MSELoss
-import numpy as np
-import pandas as pd
-import awkward
-from pathlib import Path
-from sklearn import metrics
 import sys
-import pyBumpHunter as BH
+import glob
 import tqdm
 import math
-from scipy.optimize import curve_fit
-import mplhep as hep
-plt.style.use(hep.style.CMS)
+import torch
 import random
-random.seed(42)
+import awkward
 import numpy as np
-np.random.seed(seed=42)
+import pandas as pd
+import mplhep as hep
+import os.path as osp
+import pyBumpHunter as BH
+import matplotlib.pyplot as plt
+from pathlib import Path
+from sklearn import metrics
+from torch.nn import MSELoss
+from scipy.optimize import curve_fit
+from torch.utils.data import random_split
+from matplotlib.backends.backend_pdf import PdfPages
+from torch_geometric.data import Data, DataLoader, Batch
+
+import models
+import emd_models
+from loss_util import LossFunction
+from graph_data import GraphDataset
+
+plt.style.use(hep.style.CMS)
+random.seed(0)
+np.random.seed(seed=0)
+torch.manual_seed(0)
 
 def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, jet2_pz):
     """
@@ -42,37 +49,6 @@ def invariant_mass(jet1_e, jet1_px, jet1_py, jet1_pz, jet2_e, jet2_px, jet2_py, 
     """
     return torch.sqrt(torch.square(jet1_e + jet2_e) - torch.square(jet1_px + jet2_px)
                       - torch.square(jet1_py + jet2_py) - torch.square(jet1_pz + jet2_pz))
-
-def chamferloss(x,y):
-    """
-    Sparse loss function for autoencoders, a permutation invariant euclidean distance function
-    from set x -> y and y -> x.
-
-    Args:
-        x (torch.tensor): input sample
-        y (torch.tensor): output sample
-
-    Returns:
-        torch.tensor of the same shape as x and y representing the loss.
-    """
-    num_parts = x.shape[0]
-    dist = torch.pow(torch.cdist(x,y),2)
-    in_dist_out = torch.min(dist,dim=0)
-    out_dist_in = torch.min(dist,dim=1)
-    loss = torch.sum(in_dist_out.values + out_dist_in.values) / num_parts
-    return loss
-
-# Reconstruction + KL divergence losses
-def vae_loss(x, y, mu, logvar):
-    BCE = chamferloss(x,y)
-
-    # see Appendix B from VAE paper:
-    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
-    # https://arxiv.org/abs/1312.6114
-    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
-
-    return BCE + KLD
 
 def make_bump_graph(nonoutlier_mass, outlier_mass, x_lab, save_name, bins):
     """
@@ -211,7 +187,7 @@ def make_loss_graph(losses, save_name):
     plt.ylabel('Jets', fontsize=16)
     plt.close()
 
-def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use_vae, latent_dim, no_E):
+def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_dim, no_E):
     """
     Use the specified model to determine the reconstruction loss of each sample.
     Also calculate the invariant mass of the jets.
@@ -220,9 +196,8 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
         data_loader (torch.data.DataLoader): pytorch dataloader for loading in black boxes
         num_events (int): how many events we're processing
         model_fname (str): name of saved model
-        model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
-        use_sparseloss (bool): toggle for using sparseloss instead of mse
-        use_vae (bool): toggle for using vae loss
+        model (str): name of model class
+        loss_ftn_obj (LossFunction): see loss_util.py
         latent_dim (int): latent dimension of the model
 
     Returns: torch.tensor of size (num_events, 5).
@@ -231,27 +206,18 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
         
     """
 
-    input_dim = 3 if no_E else 4
-
-    # LOAD corresponding model
-    if models.model_list[model_num] == models.GNNAutoEncoder:  # metalayer
-        model = models.model_list[model_num]()
+    # load corresponding model
+    if model == 'MetaLayerGAE':
+        model = models.GNNAutoEncoder()
     else:
-        model = models.model_list[model_num](input_dim=input_dim, hidden_dim=latent_dim)
+        input_dim = 3 if (args.no_E or args.loss=='emd_loss') else 4
+        model = getattr(models, model)(input_dim=input_dim, hidden_dim=latent_dim)
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
-
     if torch.cuda.is_available():
-        print("Using GPU")
         model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
     else:
         model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
     model.eval()
-    loss_ftn = MSELoss(reduction='mean')
-    # use sparseloss function instead of default mse
-    if use_sparseloss:
-        loss_ftn = chamferloss
-    elif use_vae:
-        loss_ftn = vae_loss
 
     # Store the return values
     max_feat = 4
@@ -260,19 +226,22 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     reco_fts = []
 
     event = 0
+    batch_size = 256
     # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
     with torch.no_grad():
-        for k, data in tqdm.tqdm(enumerate(data_loader),total=len(data_loader)):
-            data = data[0] # remove extra brackets
+        for k, data in tqdm.tqdm(enumerate(data_loader),total=len(data_loader) / batch_size):
+            import pdb; pdb.set_trace()
             # mask 3rd jet in 3-jet events
             event_list = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
             unique, inverse, counts = np.unique(event_list, return_inverse=True, return_counts=True)
             awk_array = awkward.JaggedArray.fromparents(inverse, event_list)
             mask = ((awk_array.localindex < 2).flatten()) * (counts[inverse]>1)
             data = [d for d,m in zip(data, mask) if m]
-            # get first and second jets (GET X FIRST BECAUSE MODEL UPDATES X)
+            # get leading 2 jets
             data_batch = Batch.from_data_list(data)
-            if no_E:
+            if (loss_obj.name == "emd_loss"):
+                data.x = data.x[:,4:-1]
+            elif no_E:
                 data_batch.x = data_batch.x[:,:-1]
             jets_x = data_batch.x
             batch = data_batch.batch
@@ -280,7 +249,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
             jets0_u = jets_u[::2]
             jets1_u = jets_u[1::2]
             # run inference on all jets
-            if use_vae:
+            if loss_ftn_obj.name == 'vae_loss':
                 jets_rec, mu, log_var = model(data_batch)
             else:
                 jets_rec = model(data_batch)
@@ -292,10 +261,12 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
             losses = torch.zeros((njets), dtype=torch.float32)
             # calculate loss per each batch (jet)
             for ib in torch.unique(batch):
-                if use_vae:
-                    losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], mu, log_var)
+                if loss_ftn_obj.name == 'vae_loss':
+                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], mu, log_var)
+                elif loss_ftn_obj.name == 'emd_loss':
+                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], ib)
                 else:
-                    losses[ib] = loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
+                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
 
             loss0 = losses[::2]
             loss1 = losses[1::2]
@@ -316,7 +287,7 @@ def process(data_loader, num_events, model_fname, model_num, use_sparseloss, use
     return torch.cat(jets_proc_data), torch.cat(input_fts), torch.cat(reco_fts)
 
 
-def bump_hunt(df, cuts, model_fname, model_num, bb, save_path):
+def bump_hunt(df, cuts, model_fname, model, bb, save_path):
     """
     Loops and makes multiple cuts on the jet losses, and generates a graph for each cut by
     delegating to make_bump_graph().
@@ -325,7 +296,7 @@ def bump_hunt(df, cuts, model_fname, model_num, bb, save_path):
         df (pd.DataFrame): output of process() transformed into datafram; has loss and mass of jets per event
         cuts (list of floats): all the percentages to perform a cut on the loss
         model_fname (str): name of saved model
-        model_num (int): 0 for EdgeConv based models, 1 for MetaLayer based models
+        model (str): name of model class
         bb (str): which black box the bump hunt is being performed on (e.g. 'bb1')
     """
     losses = np.concatenate([df['loss1'], df['loss2']])
@@ -441,24 +412,20 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
 
     
 if __name__ == "__main__":
-    # display some argument options
     saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
-    print(f"model_name options:\n{saved_models}\n")
-    print(f"model_num options:\n{models.model_list}\n")
 
     # process arguments
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", type=str, help="Saved model name discluding file extension.", required=True, choices=saved_models)
-    parser.add_argument("--output_dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/figures/')
-    parser.add_argument("--model_num", type=int, help="Model number", required=True)
-    parser.add_argument("--use_sparseloss", action='store_true', help="Toggle use of sparseloss. Default False.", default=False, required=False)
-    parser.add_argument("--use_vae", action='store_true', help="Toggle use of vae loss. Default False.", default=False, required=False)
-    parser.add_argument("--no_E", action='store_true', help="If model was trained without E feature", default=False, required=False)
+    parser.add_argument("--model-name", type=str, help="Saved model name without file extension", required=True, choices=saved_models)
+    parser.add_argument("--output-dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/figures/')
+    parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
+    parser.add_argument("--no-E", action='store_true', help="If model was trained without E feature", default=False, required=False)
     parser.add_argument("--overwrite", action='store_true', help="Toggle overwrite of pkl. Default False.", default=False, required=False)
-    parser.add_argument("--num_events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
-    parser.add_argument("--latent_dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
-    parser.add_argument("--box_num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", required=True)
+    parser.add_argument("--num-events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
+    parser.add_argument("--latent-dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
+    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
+    parser.add_argument("--box-num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", required=True)
     args = parser.parse_args()
 
     # validate arguments
@@ -469,10 +436,9 @@ if __name__ == "__main__":
     if args.box_num not in [0, 1, 2, 4]:
         exit("--box_num invalid; must be 0, 1, 2, or 4")
 
+    loss_ftn_obj = LossFunction(args.loss)
     model_fname = args.model_name
-    model_num = args.model_num
-    use_sparseloss = args.use_sparseloss
-    use_vae = args.use_vae
+    model = args.model
     num_events = args.num_events
     latent_dim = args.latent_dim
     output_dir = args.output_dir
@@ -494,32 +460,23 @@ if __name__ == "__main__":
         df = pd.DataFrame(d)
         return df
 
-    # how many files to read
-    max_files = 10000   # each file has 100 events (~240 jets)
-    if box_num == 4:
-        # account for fact rnd set has 100k more events then other boxes
-        num_files = int(max_files - math.floor(max_files * (1100000 - num_events) / 1100000))
-        if num_events == 1000000:    
-            num_files = int(max_files - (max_files * (1100000 - (num_events + 100000)) / 1100000)) # how many files to read
-        ignore_files = max_files - num_files
-    else:
-        num_files = int(max_files - (max_files * (1000000 - num_events) / 1000000))
-        ignore_files = max_files - num_files
-
-    print("Processing %d"%num_files)
-
+    # read in dataset
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
+#     gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
+    gdata = GraphDataset('/anomalyvol/data/lead_2/tiny/', bb=box_num)
+    bb_data = []
+    for g in gdata: # break down split files into singular array
+        bb_data += g
+    bb_loader = DataLoader(bb_data)
+
     save_dir = osp.join(model_fname, bb_name)
     save_path = osp.join(output_dir,save_dir)
     Path(save_path).mkdir(exist_ok=True) # make a subfolder
-    bb = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
-    torch.manual_seed(0)
-    bb, ignore, ignore2 = random_split(bb, [num_files, ignore_files, 0])
-    bb_loader = DataListLoader(bb)
+
     if not osp.isfile(osp.join(output_dir,model_fname,bb_name,'df.pkl')) or overwrite:
         print("Processing jet losses")
-        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model_num, use_sparseloss, use_vae, latent_dim, no_E)
+        proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model, loss_ftn_obj, latent_dim, no_E)
         df = get_df(proc_jets)
         df.to_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
         torch.save(input_fts, osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
@@ -530,4 +487,4 @@ if __name__ == "__main__":
         input_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
         reco_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'reco_fts.pt'))
     plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, save_path)
-    bump_hunt(df, cuts, model_fname, model_num, bb_name, save_path)
+    bump_hunt(df, cuts, model_fname, model, bb_name, save_path)
