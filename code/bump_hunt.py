@@ -240,7 +240,7 @@ def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_di
             # get leading 2 jets
             data_batch = Batch.from_data_list(data)
             if (loss_ftn_obj.name == "emd_loss"):
-                data.x = data.x[:,4:-1]
+                data_batch.x = data_batch.x[:,4:-1]
             elif no_E:
                 data_batch.x = data_batch.x[:,:-1]
             jets_x = data_batch.x
