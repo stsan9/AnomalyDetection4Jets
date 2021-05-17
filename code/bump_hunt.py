@@ -23,7 +23,7 @@ from torch.nn import MSELoss
 from scipy.optimize import curve_fit
 from torch.utils.data import random_split
 from matplotlib.backends.backend_pdf import PdfPages
-from torch_geometric.data import Data, DataLoader, Batch
+from torch_geometric.data import Data, DataListLoader, Batch
 
 import models
 import emd_models
