@@ -239,7 +239,7 @@ def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_di
             data = [d for d,m in zip(data, mask) if m]
             # get leading 2 jets
             data_batch = Batch.from_data_list(data)
-            if (loss_obj.name == "emd_loss"):
+            if (loss_ftn_obj.name == "emd_loss"):
                 data.x = data.x[:,4:-1]
             elif no_E:
                 data_batch.x = data_batch.x[:,:-1]
