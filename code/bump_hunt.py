@@ -229,8 +229,8 @@ def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_di
     batch_size = 256
     # for each event in the dataset calculate the loss and inv mass for the leading 2 jets
     with torch.no_grad():
-        for k, data in tqdm.tqdm(enumerate(data_loader),total=len(data_loader) / batch_size):
-            import pdb; pdb.set_trace()
+        for k, data in tqdm.tqdm(enumerate(data_loader),total=len(data_loader)):
+            data = data[0]  # remove extra bracket from DataListLoader since batch size is 1
             # mask 3rd jet in 3-jet events
             event_list = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
             unique, inverse, counts = np.unique(event_list, return_inverse=True, return_counts=True)
@@ -465,10 +465,7 @@ if __name__ == "__main__":
     print("Plotting %s"%bb_name)
 #     gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
     gdata = GraphDataset('/anomalyvol/data/lead_2/tiny/', bb=box_num)
-    bb_data = []
-    for g in gdata: # break down split files into singular array
-        bb_data += g
-    bb_loader = DataLoader(bb_data)
+    bb_loader = DataListLoader(bb_data)
 
     save_dir = osp.join(model_fname, bb_name)
     save_path = osp.join(output_dir,save_dir)
