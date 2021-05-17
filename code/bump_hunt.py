@@ -464,7 +464,7 @@ if __name__ == "__main__":
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
     gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
-    bb_loader = DataListLoader(bb_data)
+    bb_loader = DataListLoader(gdata)
 
     save_dir = osp.join(model_fname, bb_name)
     save_path = osp.join(output_dir,save_dir)
