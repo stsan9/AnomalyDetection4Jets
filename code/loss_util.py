@@ -15,14 +15,12 @@ class LossFunction:
                 self.emd_model = self.load_emd_model(emd_modname,device)
         self.name = lossname
         self.loss_ftn = loss
+        self.device = device
 
     def load_emd_model(self, modname, device):
         emd_model = emd_models.SymmetricDDEdgeNet(device=device)
         modpath = osp.join("/anomalyvol/emd_models/", modname)
-        if torch.cuda.is_available():
-            emd_model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
-        else:
-            emd_model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
+        emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
         return emd_model
 
     def chamfer_loss(self, x,y):
@@ -53,7 +51,7 @@ class LossFunction:
         Ei = torch_scatter.scatter(src=x[:,0],index=batch)
         Ey = torch_scatter.scatter(src=y[:,0],index=batch)
         u = torch.cat((Ei.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
-        data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u)
+        data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
         # get emd between x and y
         out = self.emd_model(data)
         emd = torch.square(out[0])    # ignore other model outputs

@@ -264,9 +264,7 @@ def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_di
                 if loss_ftn_obj.name == 'vae_loss':
                     losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], mu, log_var)
                 elif loss_ftn_obj.name == 'emd_loss':
-                    print(ib)
-                    print(ib.shape)
-                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], ib)
+                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], ib.repeat(jets_rec[batch==ib].shape[0]))
                 else:
                     losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
 
@@ -465,7 +463,8 @@ if __name__ == "__main__":
     # read in dataset
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
-    gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
+    # gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
+    gdata = GraphDataset('/anomalyvol/data/lead_2/tiny/', bb=box_num)
     bb_loader = DataListLoader(gdata)
 
     save_dir = osp.join(model_fname, bb_name)
