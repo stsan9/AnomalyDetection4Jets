@@ -463,9 +463,6 @@ if __name__ == "__main__":
     # read in dataset
     bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
     print("Plotting %s"%bb_name)
-    gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
-    # gdata = GraphDataset('/anomalyvol/data/lead_2/tiny/', bb=box_num)
-    bb_loader = DataListLoader(gdata)
 
     save_dir = osp.join(model_fname, bb_name)
     save_path = osp.join(output_dir,save_dir)
@@ -473,6 +470,8 @@ if __name__ == "__main__":
 
     if not osp.isfile(osp.join(output_dir,model_fname,bb_name,'df.pkl')) or overwrite:
         print("Processing jet losses")
+        gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
+        bb_loader = DataListLoader(gdata)
         proc_jets, input_fts, reco_fts = process(bb_loader, num_events, model_fname, model, loss_ftn_obj, latent_dim, no_E)
         df = get_df(proc_jets)
         df.to_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
