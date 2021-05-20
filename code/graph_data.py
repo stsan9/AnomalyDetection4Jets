@@ -194,8 +194,6 @@ class GraphDataset(Dataset):
         """
         Split processing of dataset across multiple processes.
         """
-        print(len(self.processed_file_names))
-        # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
             pars = []
             for k in range(self.n_events // self.chunk_size):
