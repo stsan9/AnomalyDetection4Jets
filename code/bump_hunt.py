@@ -264,7 +264,7 @@ def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_di
                 if loss_ftn_obj.name == 'vae_loss':
                     losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], mu, log_var)
                 elif loss_ftn_obj.name == 'emd_loss':
-                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], ib.repeat(jets_rec[batch==ib].shape[0]))
+                    losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib], torch.tensor(0).repeat(jets_rec[batch==ib].shape[0]))
                 else:
                     losses[ib] = loss_ftn_obj.loss_ftn(jets_rec[batch==ib], jets_x[batch==ib])
 
