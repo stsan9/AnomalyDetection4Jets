@@ -7,6 +7,7 @@ import numpy as np
 import os.path as osp
 import energyflow as ef
 import matplotlib.pyplot as plt
+from pathlib import Path
 from torch_geometric.data import Data, DataListLoader, Batch
 
 import models
@@ -47,7 +48,8 @@ if __name__ == "__main__":
         # load model
         input_dim = 3
         latent_dim = 2
-        model = getattr(models, model)(input_dim=input_dim, hidden_dim=latent_dim)
+        model = getattr(models, args.model)(input_dim=input_dim, hidden_dim=latent_dim)
+        modpath = osp.join('/anomalyvol/models/',args.model_fname+'.best.pth')
         if torch.cuda.is_available():
             model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
         else:
@@ -55,8 +57,9 @@ if __name__ == "__main__":
         emd_nn = LossFunction("emd_loss")
 
         # load data
-        bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][box_num]
-        gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=box_num)
+        bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][args.box_num]
+        # gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=args.box_num)
+        gdata = GraphDataset('/anomalyvol/data/lead_2/tiny', bb=args.box_num)
         data_loader = DataListLoader(gdata)
 
         emds = []
