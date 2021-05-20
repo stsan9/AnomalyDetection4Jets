@@ -42,7 +42,9 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
         elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, data.batch).item()
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            # square (for positivity) and avg into one val
+            batch_loss_item = torch.square(batch_loss).mean().item()
         else:
             batch_output = model(data)
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y).item()
@@ -77,7 +79,8 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
         elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch - torch.min(data.batch))
+            batch_loss = torch.square(batch_loss).mean()
         else:
             batch_output = model(data)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)

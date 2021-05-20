@@ -2,7 +2,9 @@
 Plot how emd model predicts emd values of gae output vs. actual emd values
 """
 import glob
+import tqdm
 import torch
+import awkward
 import numpy as np
 import os.path as osp
 import energyflow as ef
@@ -15,7 +17,6 @@ from loss_util import LossFunction
 from graph_data import GraphDataset
 
 ONE_HUNDRED_GEV = 100.0
-R = 0.4
 
 def calc_emd(rec, jet):
     rec = rec.numpy()
@@ -25,7 +26,7 @@ def calc_emd(rec, jet):
     rec[:,1:3] -= yphi_avg_rec
     yphi_avg_jet = np.average(jet[:,1:3], weights=jet[:,0], axis=0)
     jet[:,1:3] -= yphi_avg_jet
-    emdval = ef.emd.emd(rec, jet, R=R) / ONE_HUNDRED_GEV
+    emdval = ef.emd.emd(rec, jet) / ONE_HUNDRED_GEV
     return emdval
 
 if __name__ == "__main__":
@@ -49,7 +50,7 @@ if __name__ == "__main__":
         input_dim = 3
         latent_dim = 2
         model = getattr(models, args.model)(input_dim=input_dim, hidden_dim=latent_dim)
-        modpath = osp.join('/anomalyvol/models/',args.model_fname+'.best.pth')
+        modpath = osp.join('/anomalyvol/models/',args.model_name+'.best.pth')
         if torch.cuda.is_available():
             model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
         else:
@@ -87,18 +88,18 @@ if __name__ == "__main__":
                     x = jets_rec[batch==ib]
                     y = jets_x[batch==ib]
                     true_emd = calc_emd(x, y)
-                    pred_emd = emd_nn.emd_loss(x, y, ib.repeat(x.shape[0])).item()
+                    pred_emd = emd_nn.emd_loss(x, y, torch.tensor(0).repeat(x.shape[0])).item()
                     emds.append(true_emd)
                     preds.append(pred_emd)
         emds = np.array(emds)
         preds = np.array(preds)
-        np.save(true_emds_file)
-        np.save(pred_emds_file)
+        np.save(true_emds_file, emds)
+        np.save(pred_emds_file, preds)
     else:
         emds = np.load(true_emds_file)
         preds = np.load(pred_emds_file)
 
-    max_range = round(np.max(ys),-2)
+    max_range = round(np.max(emds),-2)
     # plot overlaying hists 
     fig, ax = plt.subplots(figsize =(5, 5)) 
     plt.hist(emds, bins=np.linspace(0, max_range , 101),label='True', alpha=0.5)

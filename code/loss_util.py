@@ -54,5 +54,5 @@ class LossFunction:
         data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
         # get emd between x and y
         out = self.emd_model(data)
-        emd = torch.square(out[0])    # ignore other model outputs
-        return emd.mean()
+        emd = out[0]    # ignore other model outputs
+        return emd
