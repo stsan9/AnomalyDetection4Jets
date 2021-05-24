@@ -46,6 +46,7 @@ if __name__ == "__main__":
     pred_emds_file = osp.join(args.output_dir,'emds.npy')
 
     if not (osp.isfile(true_emds_file) and osp.isfile(pred_emds_file)) or args.overwrite:
+        print("Loading gae")
         # load model
         input_dim = 3
         latent_dim = 2
@@ -56,19 +57,23 @@ if __name__ == "__main__":
         else:
             model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
         emd_nn = LossFunction("emd_loss")
-
+        print(f"Loaded {modpath}")
+        
+        print("Loading data")
         # load data
         bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][args.box_num]
         gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=args.box_num)
         # gdata = GraphDataset('/anomalyvol/data/lead_2/tiny', bb=args.box_num)
         data_loader = DataListLoader(gdata)
-
+        print(f"Loaded {bb_name}")
+        
         emds = []
         preds = []
         model.eval()
         # reconstruct jet with model, calculate the true emd with the og jet, compare with emd network
         with torch.no_grad():
             for k, data in tqdm.tqdm(enumerate(data_loader),total=len(data_loader)):
+                print(f"{k+1}/{len(data_loader)}")
                 data = data[0]  # remove extra bracket from DataListLoader since batch size is 1
                 # mask 3rd jet in 3-jet events
                 event_list = torch.stack([d.u[0][0] for d in data]).cpu().numpy()
@@ -91,14 +96,17 @@ if __name__ == "__main__":
                     pred_emd = emd_nn.emd_loss(x, y, torch.tensor(0).repeat(x.shape[0])).item()
                     emds.append(true_emd)
                     preds.append(pred_emd)
+        print("Saving values for graphing")
         emds = np.array(emds)
         preds = np.array(preds)
         np.save(true_emds_file, emds)
         np.save(pred_emds_file, preds)
     else:
+        print("Loading values for graphing")
         emds = np.load(true_emds_file)
         preds = np.load(pred_emds_file)
 
+    print("Generating graphs")
     max_range = round(np.max(preds),-2)
     min_range = round(np.min(preds),-2)
     # plot overlaying hists 
