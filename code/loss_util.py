@@ -18,7 +18,12 @@ class LossFunction:
         self.device = device
 
     def load_emd_model(self, modname, device):
-        emd_model = emd_models.SymmetricDDEdgeNet(device=device)
+        if modname == 'emd_rel_1k.best.pth':
+            emd_model = emd_models.SymmetricDDEdgeNetRel(device=device)
+        elif modname == 'emd_spl_1k.best.pth':
+            emd_model = emd_models.SymmetricDDEdgeNetSpl(device=device)
+        else:
+            emd_model = emd_models.SymmetricDDEdgeNet(device=device)
         modpath = osp.join("/anomalyvol/emd_models/", modname)
         emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
         return emd_model

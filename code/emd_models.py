@@ -76,3 +76,37 @@ class SymmetricDDEdgeNet(nn.Module):
         emd_2 = self.EdgeNet(data_2)
         loss = (emd_1 + emd_2) / 2
         return loss, emd_1, emd_2
+
+class SymmetricDDEdgeNetSpl(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=256, global_dim=2, output_dim=1, k=16, aggr='mean', device='cuda:0'):
+        super(SymmetricDDEdgeNetSpl, self).__init__()
+        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
+
+    def forward(self, data):
+        # dual copies with different orderings
+        data_1 = data
+        data_2 = copy.deepcopy(data)
+        data_2.x[:,-1] *= -1
+
+        spl = nn.Softplus()
+        emd_1 = spl(self.EdgeNet(data_1))
+        emd_2 = spl(self.EdgeNet(data_2))
+        loss = (emd_1 + emd_2) / 2
+        return loss, emd_1, emd_2
+
+class SymmetricDDEdgeNetRel(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=256, global_dim=2, output_dim=1, k=16, aggr='mean', device='cuda:0'):
+        super(SymmetricDDEdgeNetRel, self).__init__()
+        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
+
+    def forward(self, data):
+        # dual copies with different orderings
+        data_1 = data
+        data_2 = copy.deepcopy(data)
+        data_2.x[:,-1] *= -1
+
+        rel = nn.ReLU()
+        emd_1 = rel(self.EdgeNet(data_1))
+        emd_2 = rel(self.EdgeNet(data_2))
+        loss = (emd_1 + emd_2) / 2
+        return loss, emd_1, emd_2
