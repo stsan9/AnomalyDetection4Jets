@@ -99,11 +99,12 @@ if __name__ == "__main__":
         emds = np.load(true_emds_file)
         preds = np.load(pred_emds_file)
 
-    max_range = round(np.max(emds),-2)
+    max_range = round(np.max(preds),-2)
+    min_range = round(np.min(preds),-2)
     # plot overlaying hists 
     fig, ax = plt.subplots(figsize =(5, 5)) 
-    plt.hist(emds, bins=np.linspace(0, max_range , 101),label='True', alpha=0.5)
-    plt.hist(preds, bins=np.linspace(0, max_range, 101),label = 'Pred.', alpha=0.5)
+    plt.hist(emds, bins=np.linspace(min_range, max_range , 101),label='True', alpha=0.5)
+    plt.hist(preds, bins=np.linspace(min_range, max_range, 101),label = 'Pred.', alpha=0.5)
     plt.legend()
     ax.set_xlabel('EMD [GeV]') 
     fig.savefig(osp.join(args.output_dir,'overlay_EMD.pdf'))
@@ -111,8 +112,8 @@ if __name__ == "__main__":
 
     # plot 2d hist
     fig, ax = plt.subplots(figsize =(5, 5)) 
-    x_bins = np.linspace(0, max_range, 101)
-    y_bins = np.linspace(0, max_range, 101)
+    x_bins = np.linspace(min_range, max_range, 101)
+    y_bins = np.linspace(min_range, max_range, 101)
     plt.hist2d(emds, preds, bins=[x_bins,y_bins])
     ax.set_xlabel('True EMD [GeV]')  
     ax.set_ylabel('Pred. EMD [GeV]')
