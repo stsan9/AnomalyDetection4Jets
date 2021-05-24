@@ -44,7 +44,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             batch_output = model(data)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
             # square (for positivity) and avg into one val
-            batch_loss_item = torch.square(batch_loss).mean().item()
+            batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y).item()
@@ -80,7 +80,7 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
         elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch - torch.min(data.batch))
-            batch_loss = torch.square(batch_loss).mean()
+            batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
@@ -108,6 +108,8 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
     parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
+    parser.add_argument("--emd-model-name", choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
+                        help="emd models for loss", default='Symmetric1k.best.pth', required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
 
@@ -163,7 +165,7 @@ if __name__ == "__main__":
         print("Creating new model")
 
     # specify loss function
-    loss_ftn_obj = LossFunction(args.loss, device=device)
+    loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     # Training loop
     stale_epochs = 0
