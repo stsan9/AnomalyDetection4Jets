@@ -63,8 +63,8 @@ if __name__ == "__main__":
         print("Loading data")
         # load data
         bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][args.box_num]
-        # gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=args.box_num)
-        gdata = GraphDataset('/anomalyvol/data/lead_2/tiny', bb=args.box_num)
+        gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=args.box_num)
+        # gdata = GraphDataset('/anomalyvol/data/lead_2/tiny', bb=args.box_num)
         data_loader = DataListLoader(gdata)
         print(f"Loaded {bb_name}")
         
