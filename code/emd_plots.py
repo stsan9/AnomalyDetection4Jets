@@ -42,10 +42,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     Path(args.output_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model   
-    true_emds_file = osp.join(args.output_dir,'emds.npy')
+    # true_emds_file = osp.join(args.output_dir,'emds.npy')
     pred_emds_file = osp.join(args.output_dir,'emds.npy')
 
-    if not (osp.isfile(true_emds_file) and osp.isfile(pred_emds_file)) or args.overwrite:
+    # if not (osp.isfile(true_emds_file) and osp.isfile(pred_emds_file)) or args.overwrite:
+    if not osp.isfile(pred_emds_file) or args.overwrite:
         print("Loading gae")
         # load model
         input_dim = 3
@@ -62,12 +63,12 @@ if __name__ == "__main__":
         print("Loading data")
         # load data
         bb_name = ["bb0", "bb1", "bb2", "bb3", "rnd"][args.box_num]
-        gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=args.box_num)
-        # gdata = GraphDataset('/anomalyvol/data/lead_2/tiny', bb=args.box_num)
+        # gdata = GraphDataset('/anomalyvol/data/lead_2/%s/'%bb_name, bb=args.box_num)
+        gdata = GraphDataset('/anomalyvol/data/lead_2/tiny', bb=args.box_num)
         data_loader = DataListLoader(gdata)
         print(f"Loaded {bb_name}")
         
-        emds = []
+        # emds = []
         preds = []
         model.eval()
         # reconstruct jet with model, calculate the true emd with the og jet, compare with emd network
@@ -92,18 +93,18 @@ if __name__ == "__main__":
                 for ib in torch.unique(batch):
                     x = jets_rec[batch==ib]
                     y = jets_x[batch==ib]
-                    true_emd = calc_emd(x, y)
+                    # true_emd = calc_emd(x, y)
                     pred_emd = emd_nn.emd_loss(x, y, torch.tensor(0).repeat(x.shape[0])).item()
-                    emds.append(true_emd)
+                    # emds.append(true_emd)
                     preds.append(pred_emd)
         print("Saving values for graphing")
-        emds = np.array(emds)
+        # emds = np.array(emds)
         preds = np.array(preds)
-        np.save(true_emds_file, emds)
+        # np.save(true_emds_file, emds)
         np.save(pred_emds_file, preds)
     else:
         print("Loading values for graphing")
-        emds = np.load(true_emds_file)
+        # emds = np.load(true_emds_file)
         preds = np.load(pred_emds_file)
 
     print("Generating graphs")
@@ -111,19 +112,19 @@ if __name__ == "__main__":
     min_range = round(np.min(preds),-2)
     # plot overlaying hists 
     fig, ax = plt.subplots(figsize =(5, 5)) 
-    plt.hist(emds, bins=np.linspace(min_range, max_range , 101),label='True', alpha=0.5)
-    plt.hist(preds, bins=np.linspace(min_range, max_range, 101),label = 'Pred.', alpha=0.5)
+    # plt.hist(emds, bins=np.linspace(min_range, max_range , 101),label='True', alpha=0.5)
+    plt.hist(preds, bins=np.linspace(min_range, max_range, 101),label = 'Pred. EMD')
     plt.legend()
     ax.set_xlabel('EMD [GeV]') 
-    fig.savefig(osp.join(args.output_dir,'overlay_EMD.pdf'))
-    fig.savefig(osp.join(args.output_dir,'overlay_EMD.png'))
+    fig.savefig(osp.join(args.output_dir,'EMD_loss.pdf'))
+    fig.savefig(osp.join(args.output_dir,'EMD_loss.png'))
 
-    # plot 2d hist
-    fig, ax = plt.subplots(figsize =(5, 5)) 
-    x_bins = np.linspace(min_range, max_range, 101)
-    y_bins = np.linspace(min_range, max_range, 101)
-    plt.hist2d(emds, preds, bins=[x_bins,y_bins])
-    ax.set_xlabel('True EMD [GeV]')  
-    ax.set_ylabel('Pred. EMD [GeV]')
-    fig.savefig(osp.join(args.output_dir,'EMD_corr.pdf'))
-    fig.savefig(osp.join(args.output_dir,'EMD_corr.png'))
+#     # plot 2d hist
+#     fig, ax = plt.subplots(figsize =(5, 5)) 
+#     x_bins = np.linspace(min_range, max_range, 101)
+#     y_bins = np.linspace(min_range, max_range, 101)
+#     plt.hist2d(emds, preds, bins=[x_bins,y_bins])
+#     ax.set_xlabel('True EMD [GeV]')  
+#     ax.set_ylabel('Pred. EMD [GeV]')
+#     fig.savefig(osp.join(args.output_dir,'EMD_corr.pdf'))
+#     fig.savefig(osp.join(args.output_dir,'EMD_corr.png'))
