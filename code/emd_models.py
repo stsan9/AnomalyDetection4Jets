@@ -85,7 +85,7 @@ class SymmetricDDEdgeNetSpl(nn.Module):
     def forward(self, data):
         # dual copies with different orderings
         data_1 = data
-        data_2 = copy.deepcopy(data)
+        data_2 = data.clone()
         data_2.x[:,-1] *= -1
 
         spl = nn.Softplus()
@@ -102,7 +102,7 @@ class SymmetricDDEdgeNetRel(nn.Module):
     def forward(self, data):
         # dual copies with different orderings
         data_1 = data
-        data_2 = copy.deepcopy(data)
+        data_2 = data.clone()
         data_2.x[:,-1] *= -1
 
         rel = nn.ReLU()
