@@ -29,9 +29,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
         data = data.to(device)
 
         # format data
-        if (loss_ftn_obj.name == "emd_loss"):
-            data.x = data.x[:,4:-1] # pt, eta, phi
-        elif (no_E == True):
+        if (no_E == True):
             data.x = data.x[:,:3]   # px, py, pz
         y = data.x
         y = y.contiguous()
@@ -65,9 +63,7 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
         data = data.to(device)
 
         # format data
-        if (loss_ftn_obj.name == "emd_loss"):
-            data.x = data.x[:,4:-1]
-        elif (no_E == True):
+        if (no_E == True):
             data.x = data.x[:,:3]
         y = data.x
         y = y.contiguous()
@@ -103,7 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--box-num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
     parser.add_argument("--lat-dim", type=int, help="latent space size", default=2, required=False)
     parser.add_argument("--no-E", action='store_true', 
-                        help="toggle to remove energy from training and testing", default=False, required=False)
+                        help="toggle to remove energy from training and testing", default=True, required=False)
     parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
     parser.add_argument("--batch-size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)

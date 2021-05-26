@@ -5,6 +5,16 @@ import emd_models
 import sys
 from torch_geometric.data import Data
 
+def get_ptetaphi(x):
+    px = x[:,0]
+    py = x[:,1]
+    pz = x[:,2]
+    p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz))
+    pt = torch.sqrt(torch.square(px) + torch.square(py))
+    eta = torch.atanh(pz / p)
+    phi = torch.atan(py / px)
+    return pt, eta, phi
+
 class LossFunction:
     def __init__(self, lossname, emd_modname="Symmetric1k.best.pth", device='cuda:0'):
         if lossname == 'mse':
