@@ -5,15 +5,19 @@ import emd_models
 import sys
 from torch_geometric.data import Data
 
+def arctanh(x):
+    return torch.log1p(2*x/(1-x)) / 2
+
 def get_ptetaphi(x):
     px = x[:,0]
     py = x[:,1]
     pz = x[:,2]
     p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz))
     pt = torch.sqrt(torch.square(px) + torch.square(py))
-    eta = torch.atanh(pz / p)
+    eta = arctanh(pz / p)
     phi = torch.atan(py / px)
-    return pt, eta, phi
+    mat = torch.stack((pt,eta,phi),dim=1)
+    return mat
 
 class LossFunction:
     def __init__(self, lossname, emd_modname="Symmetric1k.best.pth", device='cuda:0'):
@@ -58,6 +62,8 @@ class LossFunction:
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
         device = x.device.type
+        x = get_ptetaphi(x)
+        y = get_ptetaphi(y)
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
