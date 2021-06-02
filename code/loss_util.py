@@ -16,6 +16,14 @@ def get_ptetaphi(x):
     pt = torch.sqrt(torch.square(px) + torch.square(py))
     eta = arctanh(pz / p)
     phi = torch.atan(py / px)
+    if True in torch.isnan(eta):
+        print("NAN in eta")
+    if True in torch.isnan(phi):
+        print("NAN in phi")
+    if True in torch.isnan(pz / p):
+        print("NAN in pz/p")
+    if True in torch.isnan(py / px):
+        print("NAN in py/px")
     mat = torch.stack((pt,eta,phi),dim=1)
     return mat
 
