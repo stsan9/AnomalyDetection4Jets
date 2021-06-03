@@ -75,7 +75,7 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
         elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch - torch.min(data.batch))
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
