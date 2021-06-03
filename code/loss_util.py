@@ -34,7 +34,7 @@ class LossFunction:
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         elif lossname == 'deep_emd_loss':   # use adaptation by raghav of deepemd paper
-            loss = deep_emd_loss
+            loss = self.deep_emd_loss
         else:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':  # use neural network

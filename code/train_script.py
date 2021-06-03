@@ -104,11 +104,12 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
     parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse","deep_emd_loss"], help="loss function", required=True)
     parser.add_argument("--emd-model-name", choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
-                        help="emd models for loss", default='Symmetric1k.best.pth', required=False)
+                        help="emd models for loss", default=None, required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
 
     # get dataset and split
+    print(f"Loading data at {args.input_dir}")
     gdata = GraphDataset(root=args.input_dir, bb=args.box_num)
     # merge data from separate files into one contiguous array
     bag = []
