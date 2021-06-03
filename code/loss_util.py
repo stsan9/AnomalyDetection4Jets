@@ -100,5 +100,5 @@ class LossFunction:
         x = to_dense_batch(x,batch)[0]
         y = to_dense_batch(y,batch)[0]
         # get loss using raghav's implementation of DeepEmd
-        emd = deepemd.emd_loss(x, y, device=self.device)
+        emd = deepemd(x, y, device=self.device)
         return emd
