@@ -4,6 +4,8 @@ import os.path as osp
 import emd_models
 import sys
 from torch_geometric.data import Data
+from emd_loss import emd_loss as deepemd
+from torch_geometric.utils import to_dense_batch
 
 def arctanh(x):
     return torch.log1p(2*x/(1-x)) / 2
@@ -31,9 +33,11 @@ class LossFunction:
     def __init__(self, lossname, emd_modname="Symmetric1k.best.pth", device='cuda:0'):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
+        elif lossname == 'deep_emd_loss':   # use adaptation by raghav of deepemd paper
+            loss = deep_emd_loss
         else:
             loss = getattr(self, lossname)
-            if lossname == 'emd_loss':
+            if lossname == 'emd_loss':  # use neural network
                 self.emd_model = self.load_emd_model(emd_modname,device)
         self.name = lossname
         self.loss_ftn = loss
@@ -84,4 +88,17 @@ class LossFunction:
         # get emd between x and y
         out = self.emd_model(data)
         emd = out[0]    # ignore other model outputs
+        return emd
+
+    def deep_emd_loss(self, x, y, batch):
+        x = get_ptetaphi(x)
+        y = get_ptetaphi(y)
+        # eta phi pt
+        x = torch.index_select(x, 1, torch.LongTensor([1,2,0]))
+        y = torch.index_select(y, 1, torch.LongTensor([1,2,0]))
+        # format shape as [nbatch, nparticles(padded), features]
+        x = to_dense_batch(x,batch)[0]
+        y = to_dense_batch(y,batch)[0]
+        # get loss using raghav's implementation of DeepEmd
+        emd = deepemd.emd_loss(x, y, device=self.device)
         return emd
