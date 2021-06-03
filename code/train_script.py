@@ -152,10 +152,7 @@ if __name__ == "__main__":
     # load in model
     modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
     try:
-        if torch.cuda.is_available():
-            model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
-        else:
-            model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
         print("Loaded model")
     except:
         print("Creating new model")
