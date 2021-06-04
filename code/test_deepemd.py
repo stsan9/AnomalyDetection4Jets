@@ -22,7 +22,7 @@ if __name__ == "__main__":
     data = []
     for d in gdata: # break down files
         data += d
-    device = 'cuda:0'
+    device = 'cpu'
     loader = DataLoader(data, batch_size=batch_size, pin_memory=True, shuffle=False)
     deepemd = LossFunction('deep_emd_loss', device=device)
 
