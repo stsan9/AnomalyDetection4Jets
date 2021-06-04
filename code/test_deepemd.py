@@ -16,12 +16,13 @@ data = []
 for d in gdata: # break down files
     data += d
 device = 'cuda:0'
-loader = DataLoader(data, batch_size=64, pin_memory=True, shuffle=False)
+batch_size = 16
+loader = DataLoader(data, batch_size=batch_size, pin_memory=True, shuffle=False)
 deepemd = LossFunction('deep_emd_loss', device=device)
 
 # calculate emds
 losses = []
-t = tqdm.tqdm(loader,total=len(data)/64)
+t = tqdm.tqdm(loader,total=len(data)/batch_size)
 for b in t:
     b.to(device)
     loss = deepemd.loss_ftn(b.x, b.x, b.batch) # reformats data before feeding into emd_loss
