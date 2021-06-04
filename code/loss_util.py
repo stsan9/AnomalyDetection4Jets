@@ -16,8 +16,8 @@ def get_ptetaphi(x):
     pz = x[:,2]
     p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz))
     pt = torch.sqrt(torch.square(px) + torch.square(py))
-    eta = arctanh(pz / p)
-    phi = torch.atan(py / px)
+    eta = arctanh(pz / (p + 10e-12))
+    phi = torch.atan(py / (px + 10e-12))
     if True in torch.isnan(eta):
         print("NAN in eta")
     if True in torch.isnan(phi):
