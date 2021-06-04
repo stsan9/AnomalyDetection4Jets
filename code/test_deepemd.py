@@ -2,6 +2,7 @@
 quick script to check how deepemd performs on identical jets
 using 10k events from bb0
 """
+import tqdm
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,7 +11,7 @@ from graph_data import GraphDataset
 from torch_geometric.data import DataLoader
 
 # load data
-gdata = GraphDataset(root='/anomalyvol/data/bb_train_set/bb0_xyz/',bb=0, n_events=10000)
+gdata = GraphDataset(root='/anomalyvol/data/tiny2',bb=0)
 data = []
 for d in gdata: # break down files
     data += d
@@ -20,9 +21,10 @@ deepemd = LossFunction('deep_emd_loss', device=device)
 
 # calculate emds
 losses = []
-for b in loader:
+t = tqdm.tqdm(loader,total=len(data)/64)
+for b in t:
     b.to(device)
-    loss = deepemd.loss_ftn(b.x,b.x,b.batch) # reformats data before feeding into emd_loss
+    loss = deepemd.loss_ftn(b.x, b.x, b.batch) # reformats data before feeding into emd_loss
     losses += loss.tolist()
 
 losses = np.array(losses)
