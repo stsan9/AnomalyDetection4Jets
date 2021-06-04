@@ -94,8 +94,9 @@ class LossFunction:
         x = get_ptetaphi(x)
         y = get_ptetaphi(y)
         # eta phi pt
-        x = torch.index_select(x, 1, torch.LongTensor([1,2,0]))
-        y = torch.index_select(y, 1, torch.LongTensor([1,2,0]))
+        inds = torch.LongTensor([1,2,0]).to(self.device)
+        x = torch.index_select(x, 1, inds)
+        y = torch.index_select(y, 1, inds)
         # format shape as [nbatch, nparticles(padded), features]
         x = to_dense_batch(x,batch)[0]
         y = to_dense_batch(y,batch)[0]
