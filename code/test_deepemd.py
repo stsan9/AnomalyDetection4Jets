@@ -13,7 +13,7 @@ from torch_geometric.data import DataLoader
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch-size", type=int, help="batch size", default=8, required=False)
+    parser.add_argument("--batch-size", type=int, help="batch size", default=1, required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     data = []
     for d in gdata: # break down files
         data += d
-    device = 'cpu'
+    device = 'cuda'
     loader = DataLoader(data, batch_size=batch_size, pin_memory=True, shuffle=False)
     deepemd = LossFunction('deep_emd_loss', device=device)
 
@@ -30,12 +30,15 @@ if __name__ == "__main__":
     losses = []
     t = tqdm.tqdm(loader,total=len(data)/batch_size)
     for b in t:
+        if len(b.x) > 30:
+            continue
         b.to(device)
-        loss = deepemd.loss_ftn(b.x, b.x, b.batch) # reformats data before feeding into emd_loss
+        loss = deepemd.loss_ftn(b.x, b.x, b.batch, l2_strength=1e-8) # reformats data before feeding into emd_loss
         losses += loss.tolist()
+        t.refresh()
 
     losses = np.array(losses)
-    np.save('/anomalyvol/info/deepemdlosses', losses)
+    np.save('/anomalyvol/info/deepemdlosses_l2_1e-8', losses)
 
     # analysis
     max_emd = np.around(max(losses), decimals=3)
@@ -46,11 +49,11 @@ if __name__ == "__main__":
     plt.figure(figsize=(7,5.8))
     hts,bins,_=plt.hist(losses,bins=100)
     plt.xlabel("EMD", fontsize=16)
-    x = min(bins)
+    x = max(bins) * 0.6
     y = max(hts) * 0.8
     plt.text(x, y, f'$\mu={mu}$'
                 '\n'
                 f'$\sigma={sigma}$'
                 '\n'
                 f'$max={max_emd}$')
-    plt.savefig('/anomalyvol/info/emd_losses.png')
+    plt.savefig('/anomalyvol/info/emd_losses_l2_1-e8.png')

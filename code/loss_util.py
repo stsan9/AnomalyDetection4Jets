@@ -90,7 +90,7 @@ class LossFunction:
         emd = out[0]    # ignore other model outputs
         return emd
 
-    def deep_emd_loss(self, x, y, batch):
+    def deep_emd_loss(self, x, y, batch, l2_strength=1e-4):
         x = get_ptetaphi(x)
         y = get_ptetaphi(y)
         # eta phi pt
@@ -101,5 +101,5 @@ class LossFunction:
         x = to_dense_batch(x,batch)[0]
         y = to_dense_batch(y,batch)[0]
         # get loss using raghav's implementation of DeepEmd
-        emd = deepemd(x, y, device=self.device)
+        emd = deepemd(x, y, device=self.device, l2_strength=l2_strength)
         return emd
