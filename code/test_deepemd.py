@@ -33,12 +33,12 @@ if __name__ == "__main__":
         if len(b.x) > 30:
             continue
         b.to(device)
-        loss = deepemd.loss_ftn(b.x, b.x, b.batch, l2_strength=1e-8) # reformats data before feeding into emd_loss
+        loss = deepemd.loss_ftn(b.x, b.x, b.batch, l2_strength=1e-10) # reformats data before feeding into emd_loss
         losses += loss.tolist()
         t.refresh()
 
     losses = np.array(losses)
-    np.save('/anomalyvol/info/deepemdlosses_l2_1e-8', losses)
+    np.save('/anomalyvol/info/deepemdlosses_l2_1e-10', losses)
 
     # analysis
     max_emd = np.around(max(losses), decimals=3)
@@ -56,4 +56,4 @@ if __name__ == "__main__":
                 f'$\sigma={sigma}$'
                 '\n'
                 f'$max={max_emd}$')
-    plt.savefig('/anomalyvol/info/emd_losses_l2_1-e8.png')
+    plt.savefig('/anomalyvol/info/emd_losses_l2_1e-10.png')
