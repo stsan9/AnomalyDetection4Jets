@@ -16,14 +16,10 @@ def get_ptetaphi(x):
     pt = torch.sqrt(torch.square(px) + torch.square(py))
     eta = arctanh(pz / (p + 1e-12))
     phi = torch.atan(py / (px + 1e-12))
-    if True in torch.isnan(eta):
-        print("NAN in eta")
-    if True in torch.isnan(phi):
-        print("NAN in phi")
-    if True in torch.isnan(pz / p):
-        print("NAN in pz/p")
-    if True in torch.isnan(py / px):
-        print("NAN in py/px")
+    ts = [px,py,pz,p,pt,eta,phi]
+    for e in ts:
+        if True in torch.isnan(e):
+            raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
     return mat
 
@@ -70,8 +66,12 @@ class LossFunction:
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
         device = x.device.type
-        x = get_ptetaphi(x)
-        y = get_ptetaphi(y)
+        try:
+            x = get_ptetaphi(x)
+            y = get_ptetaphi(y)
+        except ValueError as e:
+            print("Error:", e)
+            raise ValueError('emd_loss had error') from e
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)

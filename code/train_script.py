@@ -40,7 +40,12 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
         elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            try:
+                batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            except ValueError as e:
+                torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                exit('Check debug directory for model and input')
             # square (for positivity) and avg into one val
             batch_loss_item = batch_loss.mean().item()
         else:
@@ -75,7 +80,12 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
         elif loss_ftn_obj.name == "emd_loss":
             batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            try:
+                batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            except ValueError as e:
+                torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                exit('Check debug directory for model and input')
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
