@@ -13,6 +13,7 @@ import models
 import emd_models
 from loss_util import LossFunction
 from graph_data import GraphDataset
+from plot_util import loss_curves
 
 torch.manual_seed(0)
 
@@ -42,10 +43,11 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             batch_output = model(data)
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            except ValueError as e:
+            except RuntimeError as e:
                 torch.save([data],'/anomalyvol/debug/debug_input.pt')
                 torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                exit('Check debug directory for model and input')
+                raise RuntimeError('found nan in loss') from e
+                # exit('Check debug directory for model and input')
             # square (for positivity) and avg into one val
             batch_loss_item = batch_loss.mean().item()
         else:
@@ -179,9 +181,16 @@ if __name__ == "__main__":
     loss = best_valid_loss
     best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
 
+    valid_losses = []
+    train_losses = []
     for epoch in range(0, n_epochs):
-        loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
-        valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+        try:
+            loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
+            train_losses.append(loss)
+            valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+            valid_losses.append(valid_loss)
+        except RuntimeError as e:
+            
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
         print('               Validation Loss: {:.4f}'.format(valid_loss))
 
@@ -197,5 +206,8 @@ if __name__ == "__main__":
         if stale_epochs >= patience:
             print('Early stopping after %i stale epochs'%patience)
             break
+    train_epochs = list(range(epoch+1))
+    early_stop_epoch = epoch - stale_epochs - 1
+    loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses)
             
     print("Completed")

@@ -71,7 +71,7 @@ class LossFunction:
             y = get_ptetaphi(y)
         except ValueError as e:
             print("Error:", e)
-            raise ValueError('emd_loss had error') from e
+            raise RuntimeError('emd_loss had error') from e
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
