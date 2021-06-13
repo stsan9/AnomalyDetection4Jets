@@ -6,17 +6,18 @@
     is already present in specified directory, will just load in
     data.
 """
-import os.path as osp
+import glob
 import torch
-from torch_geometric.data import Dataset, Data
-import itertools
 import tables
+import random
+import itertools
 import numpy as np
 import pandas as pd
-from pyjet import cluster,DTYPE_PTEPM
-import glob
+import os.path as osp
 import multiprocessing
 from pathlib import Path
+from pyjet import cluster,DTYPE_PTEPM
+from torch_geometric.data import Dataset, Data
 
 def process_func(args):
     self, raw_path, k = args
