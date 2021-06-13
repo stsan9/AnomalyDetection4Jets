@@ -260,7 +260,7 @@ if __name__ == "__main__":
     parser.add_argument("--n-events", type=int, default=-1, help="number of events (-1 means all)")
     parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
     parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background, -1 is the mixed rnd set)")
-    parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
+    parser.add_argument("--n-files", type=int, default=100, help="number of events to merge")
     parser.add_argument("--leading-pair-only", action="store_true", default=False, help="if we only want the leading 2 jets of each event")
     args = parser.parse_args()
 
