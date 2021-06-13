@@ -198,6 +198,8 @@ class GraphDataset(Dataset):
                 pars += [(self, raw_path, k)]
             pool = multiprocessing.Pool(self.n_proc)
             results = pool.map(process_func, pars)
+            pool.close()
+            pool.join()
 
             # shuffle and save into files
             datas = sum(results,[])
