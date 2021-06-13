@@ -45,7 +45,7 @@ def collate(items): # collate function for data loaders (transforms list of list
 class GraphDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None,
                  n_particles=-1, bb=0, n_events=-1, n_proc=1,
-                 n_events_merge=100, leading_pair_only = 0):
+                 n_files=100, leading_pair_only = 0):
         """
         Initialize parameters of graph dataset
         Args:
@@ -54,13 +54,13 @@ class GraphDataset(Dataset):
             bb (int): dataset to read in (0=background)
             n_events (int): how many events to process (-1=all)
             n_proc (int): number of processes to split into
-            n_events_merge (int): how many events to merge
+            n_files (int): how many files to store the data in
             leading_pair_only (int): toggle to process only leading 2 jets / event
         """
         self.n_particles = n_particles
         self.bb = bb
         self.n_events = 1000000 if n_events==-1 else n_events
-        self.n_events_merge = n_events_merge
+        self.n_files = n_files
         self.n_proc = n_proc
         self.chunk_size = self.n_events // self.n_proc
         self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt', 'data_rnd_{}.pt']
@@ -111,8 +111,6 @@ class GraphDataset(Dataset):
         datas = []
         # iterate over events
         for i in range(rows):
-            if i%self.n_events_merge == 0:
-                datas = []
             event_idx = k*self.chunk_size + i
             ijet = 0
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
@@ -203,10 +201,11 @@ class GraphDataset(Dataset):
             # shuffle and save into files
             datas = sum(results,[])
             random.Random(0).shuffle(datas)
-            for i in range(len(datas) // self.n_events_merge):
-                start_idx = i * self.n_events_merge
-                end_idx = start_idx + self.n_events_merge
-                if i == len(datas) // self.n_events_merge:
+            data_per_file = len(datas) // self.n_files
+            for i in range(self.n_files):
+                start_idx = i * data_per_file
+                end_idx = start_idx + data_per_file
+                if i == self.n_files:
                     torch.save(datas[start_idx:], osp.join(self.processed_dir, self.file_string[self.bb].format(start_idx)))
                 else:
                     torch.save(datas[start_idx:end_idx], osp.join(self.processed_dir, self.file_string[self.bb].format(start_idx)))
@@ -266,4 +265,4 @@ if __name__ == "__main__":
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
                          n_events=args.n_events, n_particles=args.n_particles,
-                         n_events_merge=args.n_events_merge, leading_pair_only=args.leading_pair_only)
+                         n_files=args.n_files, leading_pair_only=args.leading_pair_only)
