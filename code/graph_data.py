@@ -181,14 +181,10 @@ class GraphDataset(Dataset):
                     continue
                 if self.pre_transform is not None:
                     data = self.pre_transform(data)
-                datas.append([data])
+                datas.append(data)
                 ijet += 1
 
-            if i%self.n_events_merge == self.n_events_merge-1:
-                datas = sum(datas,[])
-                #print(datas)
-                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e, signal_bit)
-                torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
+            return datas
 
     def process(self):
         """
@@ -202,7 +198,18 @@ class GraphDataset(Dataset):
                 # to do it with multiprocessing
                 pars += [(self, raw_path, k)]
             pool = multiprocessing.Pool(self.n_proc)
-            pool.map(process_func, pars)
+            results = pool.map(process_func, pars)
+
+            # shuffle and save into files
+            datas = sum(results,[])
+            random.Random(0).shuffle(datas)
+            for i in range(len(datas) // self.n_events_merge):
+                start_idx = i * self.n_events_merge
+                end_idx = start_idx + self.n_events_merge
+                if i == len(datas) // self.n_events_merge:
+                    torch.save(datas[start_idx:], osp.join(self.processed_dir, self.file_string[self.bb].format(start_idx)))
+                else:
+                    torch.save(datas[start_idx:end_idx], osp.join(self.processed_dir, self.file_string[self.bb].format(start_idx)))
 
     def get(self, idx):
         """ Used by PyTorch DataSet class """
