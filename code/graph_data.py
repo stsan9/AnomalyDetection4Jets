@@ -183,7 +183,7 @@ class GraphDataset(Dataset):
                 datas.append(data)
                 ijet += 1
 
-            return datas
+        return datas
 
     def process(self):
         """
