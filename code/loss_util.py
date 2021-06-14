@@ -1,6 +1,7 @@
 import torch
 import torch_scatter
 import os.path as osp
+import numpy as np
 import emd_models
 import sys
 from torch_geometric.data import Data
@@ -21,6 +22,10 @@ def get_ptetaphi(x):
         if True in torch.isnan(e):
             raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
+    # center jet according to pt-centroid
+    # yphi_avg = np.average(mat[:,1:3].cpu(), weights=mat[:,0], axis=0)
+    yphi_avg = torch.mean(mat[:,1:3], dim=0) * mat[:,0] / sum(mat[:,0]
+    mat[:,1:3] -= yphi_avg
     return mat
 
 class LossFunction:

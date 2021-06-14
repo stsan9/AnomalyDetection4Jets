@@ -54,7 +54,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             batch_output = model(data)
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y).item()
         sum_loss += batch_loss_item
-        t.set_description("loss = %.5f" % (batch_loss_item))
+        t.set_description("eval loss = %.5f" % (batch_loss_item))
         t.refresh() # to show immediately the update
 
     return sum_loss/(i+1)
@@ -63,45 +63,46 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
     model.train()
 
     sum_loss = 0.
-    t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
-    for i,data in t:
-        if data.x.shape[0] <= 1:    # skip strange jets
-            continue
-        data = data.to(device)
+    data = next(iter(loader))
+    # t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
+    # for i,data in t:
+    # if data.x.shape[0] <= 1:    # skip strange jets
+    #     continue
+    data = data.to(device)
 
-        # format data
-        if (no_E == True):
-            data.x = data.x[:,:3]
-        y = data.x
-        y = y.contiguous()
-        optimizer.zero_grad()
+    # format data
+    if (no_E == True):
+        data.x = data.x[:,:3]
+    y = data.x
+    y = y.contiguous()
+    optimizer.zero_grad()
 
-        # forward pass and loss calc
-        if loss_ftn_obj.name == "vae_loss":
-            batch_output, mu, log_var = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
-        elif loss_ftn_obj.name == "emd_loss":
-            batch_output = model(data)
-            try:
-                batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            except ValueError as e:
-                torch.save([data],'/anomalyvol/debug/debug_input.pt')
-                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                exit('Check debug directory for model and input')
-            batch_loss = batch_loss.mean()
-        else:
-            batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
+    # forward pass and loss calc
+    if loss_ftn_obj.name == "vae_loss":
+        batch_output, mu, log_var = model(data)
+        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
+    elif loss_ftn_obj.name == "emd_loss":
+        batch_output = model(data)
+        try:
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+        except ValueError as e:
+            torch.save([data],'/anomalyvol/debug/debug_input.pt')
+            torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+            exit('Check debug directory for model and input')
+        batch_loss = batch_loss.mean()
+    else:
+        batch_output = model(data)
+        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
 
-        # update
-        batch_loss.backward()
-        batch_loss_item = batch_loss.item()
-        t.set_description("loss = %.5f" % batch_loss_item)
-        t.refresh() # to show immediately the update
-        sum_loss += batch_loss_item
-        optimizer.step()
+    # update
+    batch_loss.backward()
+    batch_loss_item = batch_loss.item()
+    # t.set_description("train loss = %.5f" % batch_loss_item)
+    # t.refresh() # to show immediately the update
+    sum_loss += batch_loss_item
+    optimizer.step()
 
-    return sum_loss/(i+1)
+    return sum_loss
 
 if __name__ == "__main__":
     import argparse
@@ -128,6 +129,7 @@ if __name__ == "__main__":
     for g in gdata:
         bag += g
     random.Random(0).shuffle(bag)
+    bag = bag[:10]
     # 80:10:10 split datasets
     fulllen = len(bag)
     train_len = int(0.8 * fulllen)
@@ -148,9 +150,6 @@ if __name__ == "__main__":
     input_dim = 3 if (args.no_E or args.loss=='emd_loss') else 4
     big_dim = 32
     hidden_dim = args.lat_dim
-    fulllen = len(gdata)
-    tv_frac = 0.10
-    tv_num = math.ceil(fulllen*tv_frac)
     n_epochs = 200
     lr = args.lr
     patience = 10
@@ -174,6 +173,20 @@ if __name__ == "__main__":
 
     # specify loss function
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
+
+    losses = []
+    for epoch in range(1000):
+        loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
+        losses.append(loss)
+        print(f'train_loss: {loss}')
+    import matplotlib.pyplot as plt
+    plt.plot(list(range(epoch+1)), losses)
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend(['Train'])
+    plt.savefig('/anomalyvol/debug/train_curve.png')
+    plt.close()
+    exit("Done")
 
     # Training loop
     stale_epochs = 0
@@ -212,6 +225,6 @@ if __name__ == "__main__":
             break
     train_epochs = list(range(epoch+1))
     early_stop_epoch = epoch - stale_epochs - 1
-    loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses)
+    loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, '/anomalyvol/debug/')
             
     print("Completed")

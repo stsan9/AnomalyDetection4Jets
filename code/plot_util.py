@@ -58,6 +58,7 @@ def loss_curves(epochs, early_stop_epoch, train_loss, valid_loss, save_path):
         Graph our training and validation losses.
     '''
     plt.plot(epochs, train_loss, valid_loss)
+    plt.xticks(epochs)
     plt.axvline(x=early_stop_epoch, linestyle='--')
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
