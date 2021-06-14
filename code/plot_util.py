@@ -12,9 +12,9 @@ def loss_distr(losses, save_name):
     """
     plt.figure(figsize=(6,4.4))
     plt.hist(losses,bins=np.linspace(0, 600, 101))
-    plt.savefig(osp.join(save_name+'.pdf'))
     plt.xlabel('Loss', fontsize=16)
     plt.ylabel('Jets', fontsize=16)
+    plt.savefig(osp.join(save_name+'.pdf'))
     plt.close()
 
 def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
@@ -53,7 +53,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, bb, save_path):
         plt.savefig(osp.join(save_path, 'reconstruction', feat[i] + '_' + bb + '.pdf'))
         plt.close()
 
-def loss_curves(epochs, early_stop_epoch, train_loss, valid_loss):
+def loss_curves(epochs, early_stop_epoch, train_loss, valid_loss, save_path):
     '''
         Graph our training and validation losses.
     '''
@@ -62,3 +62,6 @@ def loss_curves(epochs, early_stop_epoch, train_loss, valid_loss):
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
     plt.legend(['Train', 'Validation', 'Best model'])
+    plt.savefig(osp.join(save_path, 'loss_curves.pdf'))
+    plt.savefig(osp.join(save_path, 'loss_curves.png'))
+    plt.close()
