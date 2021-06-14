@@ -63,7 +63,10 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
     model.train()
 
     sum_loss = 0.
-    data = next(iter(loader))
+    iter_loader = iter(loader)
+    data = next(iter_loader)
+    data = next(iter_loader)
+    data = next(iter_loader)
     # t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     # for i,data in t:
     # if data.x.shape[0] <= 1:    # skip strange jets
@@ -176,9 +179,10 @@ if __name__ == "__main__":
 
     losses = []
     for epoch in range(1000):
+        if epoch % 100 == 0:
+            print(f'Epoch: {epoch}/1000')
         loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
         losses.append(loss)
-        print(f'train_loss: {loss}')
     import matplotlib.pyplot as plt
     plt.plot(list(range(epoch+1)), losses)
     plt.xlabel("Epochs")

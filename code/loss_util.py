@@ -6,6 +6,8 @@ import emd_models
 import sys
 from torch_geometric.data import Data
 
+torch.autograd.set_detect_anomaly(True)
+
 def arctanh(x):
     return torch.log1p(2*x/(1-x)) / 2
 
@@ -22,9 +24,7 @@ def get_ptetaphi(x):
         if True in torch.isnan(e):
             raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
-    # center jet according to pt-centroid
-    # yphi_avg = np.average(mat[:,1:3].cpu(), weights=mat[:,0], axis=0)
-    yphi_avg = torch.mean(mat[:,1:3], dim=0) * mat[:,0] / sum(mat[:,0]
+    yphi_avg = torch.sum(mat[:,1:3].clone() * mat[:,0,None].clone(), axis=0) / torch.sum(mat[:,0])
     mat[:,1:3] -= yphi_avg
     return mat
 
