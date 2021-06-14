@@ -63,49 +63,45 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
     model.train()
 
     sum_loss = 0.
-    iter_loader = iter(loader)
-    data = next(iter_loader)
-    data = next(iter_loader)
-    data = next(iter_loader)
-    # t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
-    # for i,data in t:
-    # if data.x.shape[0] <= 1:    # skip strange jets
-    #     continue
-    data = data.to(device)
+    t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
+    for i,data in t:
+        if data.x.shape[0] <= 1:    # skip strange jets
+            continue
+        data = data.to(device)
 
-    # format data
-    if (no_E == True):
-        data.x = data.x[:,:3]
-    y = data.x
-    y = y.contiguous()
-    optimizer.zero_grad()
+        # format data
+        if (no_E == True):
+            data.x = data.x[:,:3]
+        y = data.x
+        y = y.contiguous()
+        optimizer.zero_grad()
 
-    # forward pass and loss calc
-    if loss_ftn_obj.name == "vae_loss":
-        batch_output, mu, log_var = model(data)
-        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
-    elif loss_ftn_obj.name == "emd_loss":
-        batch_output = model(data)
-        try:
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-        except ValueError as e:
-            torch.save([data],'/anomalyvol/debug/debug_input.pt')
-            torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-            exit('Check debug directory for model and input')
-        batch_loss = batch_loss.mean()
-    else:
-        batch_output = model(data)
-        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
+        # forward pass and loss calc
+        if loss_ftn_obj.name == "vae_loss":
+            batch_output, mu, log_var = model(data)
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
+        elif loss_ftn_obj.name == "emd_loss":
+            batch_output = model(data)
+            try:
+                batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
+            except ValueError as e:
+                torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                exit('Check debug directory for model and input')
+            batch_loss = batch_loss.mean()
+        else:
+            batch_output = model(data)
+            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
 
-    # update
-    batch_loss.backward()
-    batch_loss_item = batch_loss.item()
-    # t.set_description("train loss = %.5f" % batch_loss_item)
-    # t.refresh() # to show immediately the update
-    sum_loss += batch_loss_item
-    optimizer.step()
+        # update
+        batch_loss.backward()
+        batch_loss_item = batch_loss.item()
+        # t.set_description("train loss = %.5f" % batch_loss_item)
+        # t.refresh() # to show immediately the update
+        sum_loss += batch_loss_item
+        optimizer.step()
 
-    return sum_loss
+    return sum_loss / (i+1)
 
 if __name__ == "__main__":
     import argparse
@@ -132,7 +128,7 @@ if __name__ == "__main__":
     for g in gdata:
         bag += g
     random.Random(0).shuffle(bag)
-    bag = bag[:10]
+    bag = bag[:160]
     # 80:10:10 split datasets
     fulllen = len(bag)
     train_len = int(0.8 * fulllen)
@@ -178,9 +174,7 @@ if __name__ == "__main__":
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     losses = []
-    for epoch in range(1000):
-        if epoch % 100 == 0:
-            print(f'Epoch: {epoch}/1000')
+    for epoch in range(500):
         loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
         losses.append(loss)
     import matplotlib.pyplot as plt
