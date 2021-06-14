@@ -190,7 +190,11 @@ if __name__ == "__main__":
             valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
             valid_losses.append(valid_loss)
         except RuntimeError as e:
-            
+            train_epochs = list(range(epoch+1))
+            early_stop_epoch = epoch - stale_epochs
+            loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses)
+            print("Error during training",e)
+            exit("Exiting Early")
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
         print('               Validation Loss: {:.4f}'.format(valid_loss))
 
