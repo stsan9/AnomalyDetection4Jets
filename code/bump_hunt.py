@@ -202,7 +202,7 @@ def process(data_loader, num_events, model_fname, model, loss_ftn_obj, latent_di
     else:
         input_dim = 3 if (args.no_E or args.loss=='emd_loss') else 4
         model = getattr(models, model)(input_dim=input_dim, hidden_dim=latent_dim)
-    modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
+    modpath = osp.join('/anomalyvol/results/',model_fname,model_fname+'.best.pth')
     if torch.cuda.is_available():
         model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
     else:
@@ -364,13 +364,13 @@ def bump_hunt(df, cuts, model_fname, model, bb, save_path):
         plt.close()
 
 if __name__ == "__main__":
-    saved_models = [osp.basename(x)[:-9] for x in glob.glob('/anomalyvol/models/*')]
+    saved_models = [osp.basename(x) for x in glob.glob('/anomalyvol/results/*')]
 
     # process arguments
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-name", type=str, help="Saved model name without file extension", required=True, choices=saved_models)
-    parser.add_argument("--output-dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/figures/')
+    parser.add_argument("--output-dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/results/')
     parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
     parser.add_argument("--no-E", action='store_true', help="If model was trained without E feature", default=False, required=False)
     parser.add_argument("--overwrite", action='store_true', help="Toggle overwrite of pkl. Default False.", default=False, required=False)

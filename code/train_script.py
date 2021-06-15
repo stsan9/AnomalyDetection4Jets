@@ -5,6 +5,7 @@ import torch
 import random
 import torch.nn as nn
 import os.path as osp
+from pathlib import Path
 from torch.utils.data import random_split
 from torch_geometric.nn import EdgeConv, global_mean_pool
 from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
@@ -122,6 +123,9 @@ if __name__ == "__main__":
     parser.add_argument("--num-data", type=int, help="how much data to use (e.g. 10 jets)", default=None, required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
+    model_fname = args.mod_name
+
+    Path(osp.join('/anomalyvol/results',model_fname)).mkdir(exist_ok=True) # make a folder for the graphs of this model
 
     # get dataset and split
     gdata = GraphDataset(root=args.input_dir, bb=args.box_num)
@@ -155,14 +159,13 @@ if __name__ == "__main__":
     lr = args.lr
     patience = args.patience
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    model_fname = args.mod_name
     if args.model == 'MetaLayerGAE':
         model = models.GNNAutoEncoder().to(device)
     else:
         model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     # load in model
-    modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
+    modpath = osp.join('/anomalyvol/results/',model_fname,model_fname+'.best.pth')
     try:
         if torch.cuda.is_available():
             model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
@@ -200,7 +203,6 @@ if __name__ == "__main__":
 
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
-            modpath = osp.join('/anomalyvol/models/',model_fname+'.best.pth')
             print('New best model saved to:',modpath)
             torch.save(model.state_dict(),modpath)
             stale_epochs = 0
