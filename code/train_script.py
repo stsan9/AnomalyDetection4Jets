@@ -96,8 +96,8 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
         # update
         batch_loss.backward()
         batch_loss_item = batch_loss.item()
-        # t.set_description("train loss = %.5f" % batch_loss_item)
-        # t.refresh() # to show immediately the update
+        t.set_description("train loss = %.5f" % batch_loss_item)
+        t.refresh() # to show immediately the update
         sum_loss += batch_loss_item
         optimizer.step()
 
@@ -115,9 +115,11 @@ if __name__ == "__main__":
     parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
     parser.add_argument("--batch-size", type=int, help="batch size", default=2, required=False)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3, required=False)
+    parser.add_argument("--patience", type=int, help="patience", default=10, required=False)
     parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
     parser.add_argument("--emd-model-name", choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
                         help="emd models for loss", default='Symmetric1k.best.pth', required=False)
+    parser.add_argument("--num-data", type=int, help="how much data to use (e.g. 10 jets)", default=None, required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
 
@@ -128,7 +130,7 @@ if __name__ == "__main__":
     for g in gdata:
         bag += g
     random.Random(0).shuffle(bag)
-    bag = bag[:160]
+    bag = bag[:args.num_data]
     # 80:10:10 split datasets
     fulllen = len(bag)
     train_len = int(0.8 * fulllen)
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     hidden_dim = args.lat_dim
     n_epochs = 200
     lr = args.lr
-    patience = 10
+    patience = args.patience
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model_fname = args.mod_name
     if args.model == 'MetaLayerGAE':
@@ -173,19 +175,6 @@ if __name__ == "__main__":
     # specify loss function
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
-    losses = []
-    for epoch in range(500):
-        loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
-        losses.append(loss)
-    import matplotlib.pyplot as plt
-    plt.plot(list(range(epoch+1)), losses)
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend(['Train'])
-    plt.savefig('/anomalyvol/debug/train_curve.png')
-    plt.close()
-    exit("Done")
-
     # Training loop
     stale_epochs = 0
     best_valid_loss = 9999999
@@ -203,7 +192,7 @@ if __name__ == "__main__":
         except RuntimeError as e:
             train_epochs = list(range(epoch+1))
             early_stop_epoch = epoch - stale_epochs
-            loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses)
+            loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, '/anomalyvol/debug/')
             print("Error during training",e)
             exit("Exiting Early")
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
