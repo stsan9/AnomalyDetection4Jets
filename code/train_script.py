@@ -110,6 +110,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mod-name", type=str, help="model name for saving and loading", required=True)
     parser.add_argument("--input-dir", type=str, help="location of dataset", required=True)
+    parser.add_argument("--output-dir", type=str, help="root folder to output experiment results to", default='/anomalyvol/experiments/', required=False)
     parser.add_argument("--box-num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", default=0, required=False)
     parser.add_argument("--lat-dim", type=int, help="latent space size", default=2, required=False)
     parser.add_argument("--no-E", action='store_true', 
@@ -129,8 +130,10 @@ if __name__ == "__main__":
     if multi_gpu and batch_size < torch.cuda.device_count():
         exit("Batch size too small")
 
-    save_dir = osp.join('/anomalyvol/results',model_fname)
-    Path(save_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model
+    # make a folder for the graphs of this model
+    Path(args.output_dir).mkdir(exist_ok=True)
+    save_dir = osp.join(args.output_dir,model_fname)
+    Path(save_dir).mkdir(exist_ok=True)
 
     # get dataset and split
     gdata = GraphDataset(root=args.input_dir, bb=args.box_num)
