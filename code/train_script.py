@@ -7,7 +7,7 @@ import torch.nn as nn
 import os.path as osp
 from pathlib import Path
 from torch.utils.data import random_split
-from torch_geometric.nn import EdgeConv, global_mean_pool
+from torch_geometric.nn import EdgeConv, global_mean_pool, DataParallel
 from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 
 import models
@@ -17,6 +17,7 @@ from graph_data import GraphDataset
 from plot_util import loss_curves
 
 torch.manual_seed(0)
+multi_gpu = torch.cuda.device_count()>1
 
 # train and test helper functions
 @torch.no_grad()
@@ -125,6 +126,9 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     model_fname = args.mod_name
 
+    if multi_gpu and batch_size < torch.cuda.device_count():
+        exit("Batch size too small")
+
     save_dir = osp.join('/anomalyvol/results',model_fname)
     Path(save_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model
 
@@ -144,8 +148,12 @@ if __name__ == "__main__":
     train_samples = len(train_dataset)
     valid_samples = len(valid_dataset)
     # dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+    if multi_gpu:
+        train_loader = DataListLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
+        valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+    else:
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
 
     # specify loss function
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -160,23 +168,23 @@ if __name__ == "__main__":
     lr = args.lr
     patience = args.patience
     if args.model == 'MetaLayerGAE':
-        model = models.GNNAutoEncoder().to(device)
+        model = models.GNNAutoEncoder()
     else:
-        model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
+        model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     # load in model
     modpath = osp.join(save_dir,model_fname+'.best.pth')
     try:
-        if torch.cuda.is_available():
-            model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
-        else:
-            model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(modpath))
         print("Loaded model")
         best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
         print(f'Saved model valid loss: {best_valid_loss}')
     except:
         print("Creating new model")
         best_valid_loss = 9999999
+    if multi_gpu:
+        model = DataParallel(model)
+    model.to(torch.device(device))
 
     # Training loop
     stale_epochs = 0
