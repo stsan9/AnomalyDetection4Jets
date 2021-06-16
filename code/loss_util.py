@@ -27,8 +27,10 @@ def get_ptetaphi(x,batch):
     # center by pt centroid while accounting for torch geo batching
     n = torch_scatter.scatter(mat[:,1:3].clone() * mat[:,0,None].clone(), batch, dim=0, reduce='sum')
     d = torch_scatter.scatter(mat[:,0], batch, dim=0, reduce='sum')
-    yphi_avg = n.T / d
-    mat[:,1:3] -= yphi_avg.T
+    yphi_avg = (n.T / d).T  # returns yphi_avg for each batch
+    _, counts = torch.unique_consecutive(batch, return_counts=True)
+    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0) # repeat per batch for subtraction step
+    mat[:,1:3] -= yphi_avg
     return mat
 
 class LossFunction:
@@ -83,13 +85,18 @@ class LossFunction:
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
-        jet_pair = torch.cat((x,y),0)
-        import pdb; pdb.set_trace()
-        # normalize jet pairs
-        Ei = torch_scatter.scatter(src=x[:,0],index=batch)
+        # import pdb; pdb.set_trace()
+        # normalize pt
+        Ex = torch_scatter.scatter(src=x[:,0],index=batch)
         Ey = torch_scatter.scatter(src=y[:,0],index=batch)
+        _, counts = torch.unique_consecutive(batch, return_counts=True)
+        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
+        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
+        x[:,0] = x[:,0].clone() / Ex_repeat
+        y[:,0] = y[:,0].clone() / Ey_repeat
         # create data object for emd model
-        u = torch.cat((Ei.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
+        jet_pair = torch.cat((x,y),0)
+        u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
         data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
         # get emd between x and y
         out = self.emd_model(data)

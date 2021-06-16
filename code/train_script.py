@@ -138,7 +138,7 @@ if __name__ == "__main__":
     bag = bag[:args.num_data]
     # 80:10:10 split datasets
     fulllen = len(bag)
-    train_len = int(0.5 * fulllen)
+    train_len = int(0.8 * fulllen)
     train_dataset = bag[:train_len]
     valid_dataset = bag[train_len:]
     train_samples = len(train_dataset)
@@ -146,6 +146,10 @@ if __name__ == "__main__":
     # dataloaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+
+    # specify loss function
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     # create model
     no_E = args.no_E
@@ -155,7 +159,6 @@ if __name__ == "__main__":
     n_epochs = 200
     lr = args.lr
     patience = args.patience
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     if args.model == 'MetaLayerGAE':
         model = models.GNNAutoEncoder().to(device)
     else:
@@ -169,17 +172,15 @@ if __name__ == "__main__":
         else:
             model.load_state_dict(torch.load(modpath, map_location=torch.device('cpu')))
         print("Loaded model")
+        best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+        print(f'Saved model valid loss: {best_valid_loss}')
     except:
         print("Creating new model")
-
-    # specify loss function
-    loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
+        best_valid_loss = 9999999
 
     # Training loop
     stale_epochs = 0
-    best_valid_loss = 9999999
     loss = best_valid_loss
-    best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
 
     valid_losses = []
     train_losses = []
@@ -190,9 +191,16 @@ if __name__ == "__main__":
             valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
             valid_losses.append(valid_loss)
         except RuntimeError as e:
-            train_epochs = list(range(epoch+1))
-            early_stop_epoch = epoch - stale_epochs
-            loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
+            if epoch > 3:
+                train_epochs = list(range(epoch+1))
+                early_stop_epoch = epoch - stale_epochs
+                # adjust list lengths by whichever broke before plotting
+                valid_epochs = min(len(train_epochs), len(train_losses), len(valid_losses))
+                early_stop_epoch -= len(train_epochs) - valid_epochs
+                train_epochs = train_epochs[:valid_epochs]
+                train_losses = train_losses[:valid_epochs]
+                valid_losses = valid_losses[:valid_epochs]
+                loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
             print("Error during training",e)
             exit("Exiting Early")
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
@@ -204,13 +212,13 @@ if __name__ == "__main__":
             torch.save(model.state_dict(),modpath)
             stale_epochs = 0
         else:
-            print('Stale epoch')
+            print(f'Stale epoch\nBest: {best_valid_loss}\nCurr: {valid_loss}')
             stale_epochs += 1
         if stale_epochs >= patience:
             print('Early stopping after %i stale epochs'%patience)
             break
     train_epochs = list(range(epoch+1))
-    early_stop_epoch = epoch - stale_epochs - 1
+    early_stop_epoch = epoch - stale_epochs + 1
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
             
     print("Completed")
