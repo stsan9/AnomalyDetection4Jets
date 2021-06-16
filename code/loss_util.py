@@ -8,8 +8,6 @@ from torch_geometric.data import Data
 from emd_loss import emd_loss as deepemd
 from torch_geometric.utils import to_dense_batch
 
-torch.autograd.set_detect_anomaly(True)
-
 def arctanh(x):
     return torch.log1p(2*x/(1-x)) / 2
 
@@ -106,21 +104,20 @@ class LossFunction:
         return emd
 
     def deep_emd_loss(self, x, y, batch, l2_strength=1e-4):
-        x = get_ptetaphi(x)
-        y = get_ptetaphi(y)
+        x = get_ptetaphi(x, batch)
+        y = get_ptetaphi(y, batch)
+        # normalize pt
+        Ex = torch_scatter.scatter(src=x[:,0],index=batch)
+        Ey = torch_scatter.scatter(src=y[:,0],index=batch)
+        _, counts = torch.unique_consecutive(batch, return_counts=True)
+        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
+        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
+        x[:,0] = x[:,0].clone() / Ex_repeat
+        y[:,0] = y[:,0].clone() / Ey_repeat
         # eta phi pt
         inds = torch.LongTensor([1,2,0]).to(self.device)
         x = torch.index_select(x, 1, inds)
         y = torch.index_select(y, 1, inds)
-        # format shape as [nbatch, nparticles(padded), features]
-        x = to_dense_batch(x,batch)[0]
-        y = to_dense_batch(y,batch)[0]
-        # get loss using raghav's implementation of DeepEmd
-        emd = deepemd(x, y, device=torch.device(self.device), l2_strength=l2_strength)
-        return emd
-
-    # get_ptetaphi is run elsewhere so I can insert normalization on the whole dataset
-    def deep_emd_loss_alt(self, x, y, batch, l2_strength=1e-4):
         # format shape as [nbatch, nparticles(padded), features]
         x = to_dense_batch(x,batch)[0]
         y = to_dense_batch(y,batch)[0]
