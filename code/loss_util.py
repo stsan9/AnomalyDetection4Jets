@@ -1,36 +1,42 @@
 import torch
 import torch_scatter
 import os.path as osp
+import numpy as np
 import emd_models
 import sys
 from torch_geometric.data import Data
 from emd_loss import emd_loss as deepemd
 from torch_geometric.utils import to_dense_batch
 
+torch.autograd.set_detect_anomaly(True)
+
 def arctanh(x):
     return torch.log1p(2*x/(1-x)) / 2
 
-def get_ptetaphi(x):
+def get_ptetaphi(x,batch):
     px = x[:,0]
     py = x[:,1]
     pz = x[:,2]
     p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz))
     pt = torch.sqrt(torch.square(px) + torch.square(py))
-    eta = arctanh(pz / (p + 10e-12))
-    phi = torch.atan(py / (px + 10e-12))
-    if True in torch.isnan(eta):
-        print("NAN in eta")
-    if True in torch.isnan(phi):
-        print("NAN in phi")
-    if True in torch.isnan(pz / p):
-        print("NAN in pz/p")
-    if True in torch.isnan(py / px):
-        print("NAN in py/px")
+    eta = arctanh(pz / (p + 1e-12))
+    phi = torch.atan(py / (px + 1e-12))
+    ts = [px,py,pz,p,pt,eta,phi]
+    for e in ts:
+        if True in torch.isnan(e):
+            raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
+    # center by pt centroid while accounting for torch geo batching
+    n = torch_scatter.scatter(mat[:,1:3].clone() * mat[:,0,None].clone(), batch, dim=0, reduce='sum')
+    d = torch_scatter.scatter(mat[:,0], batch, dim=0, reduce='sum')
+    yphi_avg = (n.T / d).T  # returns yphi_avg for each batch
+    _, counts = torch.unique_consecutive(batch, return_counts=True)
+    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0) # repeat per batch for subtraction step
+    mat[:,1:3] -= yphi_avg
     return mat
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname="Symmetric1k.best.pth", device='cuda:0'):
+    def __init__(self, lossname, emd_modname='Symmetric1k.best.pth', device='cuda:0'):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         else:
@@ -48,7 +54,7 @@ class LossFunction:
             emd_model = emd_models.SymmetricDDEdgeNetSpl(device=device)
         else:
             emd_model = emd_models.SymmetricDDEdgeNet(device=device)
-        modpath = osp.join("/anomalyvol/emd_models/", modname)
+        modpath = osp.join('/anomalyvol/emd_models/', modname)
         emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
         return emd_model
 
@@ -72,16 +78,27 @@ class LossFunction:
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
         device = x.device.type
-        x = get_ptetaphi(x)
-        y = get_ptetaphi(y)
+        try:
+            x = get_ptetaphi(x, batch)
+            y = get_ptetaphi(y, batch)
+        except ValueError as e:
+            print('Error:', e)
+            raise RuntimeError('emd_loss had error') from e
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
-        jet_pair = torch.cat((x,y),0)
-        # create data object for emd model
-        Ei = torch_scatter.scatter(src=x[:,0],index=batch)
+        # import pdb; pdb.set_trace()
+        # normalize pt
+        Ex = torch_scatter.scatter(src=x[:,0],index=batch)
         Ey = torch_scatter.scatter(src=y[:,0],index=batch)
-        u = torch.cat((Ei.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
+        _, counts = torch.unique_consecutive(batch, return_counts=True)
+        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
+        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
+        x[:,0] = x[:,0].clone() / Ex_repeat
+        y[:,0] = y[:,0].clone() / Ey_repeat
+        # create data object for emd model
+        jet_pair = torch.cat((x,y),0)
+        u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
         data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
         # get emd between x and y
         out = self.emd_model(data)
