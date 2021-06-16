@@ -11,7 +11,7 @@ torch.autograd.set_detect_anomaly(True)
 def arctanh(x):
     return torch.log1p(2*x/(1-x)) / 2
 
-def get_ptetaphi(x):
+def get_ptetaphi(x,batch):
     px = x[:,0]
     py = x[:,1]
     pz = x[:,2]
@@ -24,12 +24,15 @@ def get_ptetaphi(x):
         if True in torch.isnan(e):
             raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
-    yphi_avg = torch.sum(mat[:,1:3].clone() * mat[:,0,None].clone(), axis=0) / torch.sum(mat[:,0])
-    mat[:,1:3] -= yphi_avg
+    # center by pt centroid while accounting for torch geo batching
+    n = torch_scatter.scatter(mat[:,1:3].clone() * mat[:,0,None].clone(), batch, dim=0, reduce='sum')
+    d = torch_scatter.scatter(mat[:,0], batch, dim=0, reduce='sum')
+    yphi_avg = n.T / d
+    mat[:,1:3] -= yphi_avg.T
     return mat
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname="Symmetric1k.best.pth", device='cuda:0'):
+    def __init__(self, lossname, emd_modname='Symmetric1k.best.pth', device='cuda:0'):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         else:
@@ -47,7 +50,7 @@ class LossFunction:
             emd_model = emd_models.SymmetricDDEdgeNetSpl(device=device)
         else:
             emd_model = emd_models.SymmetricDDEdgeNet(device=device)
-        modpath = osp.join("/anomalyvol/emd_models/", modname)
+        modpath = osp.join('/anomalyvol/emd_models/', modname)
         emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
         return emd_model
 
@@ -72,18 +75,20 @@ class LossFunction:
         self.emd_model.eval()
         device = x.device.type
         try:
-            x = get_ptetaphi(x)
-            y = get_ptetaphi(y)
+            x = get_ptetaphi(x, batch)
+            y = get_ptetaphi(y, batch)
         except ValueError as e:
-            print("Error:", e)
+            print('Error:', e)
             raise RuntimeError('emd_loss had error') from e
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
         jet_pair = torch.cat((x,y),0)
-        # create data object for emd model
+        import pdb; pdb.set_trace()
+        # normalize jet pairs
         Ei = torch_scatter.scatter(src=x[:,0],index=batch)
         Ey = torch_scatter.scatter(src=y[:,0],index=batch)
+        # create data object for emd model
         u = torch.cat((Ei.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
         data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
         # get emd between x and y

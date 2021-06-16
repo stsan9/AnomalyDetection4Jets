@@ -59,6 +59,8 @@ def loss_curves(epochs, early_stop_epoch, train_loss, valid_loss, save_path):
     '''
     plt.plot(epochs, train_loss, valid_loss)
     plt.xticks(epochs)
+    ax = plt.gca()
+    ax.locator_params(nbins=10, axis='x')
     if early_stop_epoch != None:
         plt.axvline(x=early_stop_epoch, linestyle='--')
     plt.xlabel("Epochs")

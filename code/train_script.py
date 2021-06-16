@@ -125,7 +125,8 @@ if __name__ == "__main__":
     batch_size = args.batch_size
     model_fname = args.mod_name
 
-    Path(osp.join('/anomalyvol/results',model_fname)).mkdir(exist_ok=True) # make a folder for the graphs of this model
+    save_dir = osp.join('/anomalyvol/results',model_fname)
+    Path(save_dir).mkdir(exist_ok=True) # make a folder for the graphs of this model
 
     # get dataset and split
     gdata = GraphDataset(root=args.input_dir, bb=args.box_num)
@@ -137,18 +138,14 @@ if __name__ == "__main__":
     bag = bag[:args.num_data]
     # 80:10:10 split datasets
     fulllen = len(bag)
-    train_len = int(0.8 * fulllen)
-    tv_len = int(0.10 * fulllen)
+    train_len = int(0.5 * fulllen)
     train_dataset = bag[:train_len]
-    valid_dataset = bag[train_len:train_len + tv_len]
-    test_dataset  = bag[train_len + tv_len:]
+    valid_dataset = bag[train_len:]
     train_samples = len(train_dataset)
     valid_samples = len(valid_dataset)
-    test_samples = len(test_dataset)
     # dataloaders
     train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
 
     # create model
     no_E = args.no_E
@@ -165,7 +162,7 @@ if __name__ == "__main__":
         model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     # load in model
-    modpath = osp.join('/anomalyvol/results/',model_fname,model_fname+'.best.pth')
+    modpath = osp.join(save_dir,model_fname+'.best.pth')
     try:
         if torch.cuda.is_available():
             model.load_state_dict(torch.load(modpath, map_location=torch.device('cuda')))
@@ -195,7 +192,7 @@ if __name__ == "__main__":
         except RuntimeError as e:
             train_epochs = list(range(epoch+1))
             early_stop_epoch = epoch - stale_epochs
-            loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, '/anomalyvol/debug/')
+            loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
             print("Error during training",e)
             exit("Exiting Early")
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
@@ -214,6 +211,6 @@ if __name__ == "__main__":
             break
     train_epochs = list(range(epoch+1))
     early_stop_epoch = epoch - stale_epochs - 1
-    loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, '/anomalyvol/debug/')
+    loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
             
     print("Completed")
