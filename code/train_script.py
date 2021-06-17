@@ -218,6 +218,9 @@ if __name__ == '__main__':
         bag += g
     random.Random(0).shuffle(bag)
     bag = bag[:args.num_data]
+    # temporary patch until all saved datasets only have 3 feats
+    for d in bag:
+        d.x = d.x[:,:3]
     # 80:10:10 split datasets
     fulllen = len(bag)
     train_len = int(0.8 * fulllen)
