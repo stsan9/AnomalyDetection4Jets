@@ -170,7 +170,7 @@ class GraphDataset(Dataset):
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
                 # save particles as node attributes and target
-                x = torch.tensor(particles, dtype=torch.float)
+                x = torch.tensor(particles[:,:3], dtype=torch.float)
                 # y = x
                 # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
@@ -194,8 +194,6 @@ class GraphDataset(Dataset):
         """
         Split processing of dataset across multiple processes.
         """
-        print(len(self.processed_file_names))
-        # only do 10000 events for background, process full blackboxes
         for raw_path in self.raw_paths:
             pars = []
             for k in range(self.n_events // self.chunk_size):
@@ -256,7 +254,7 @@ if __name__ == "__main__":
     parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
     parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background, -1 is the mixed rnd set)")
     parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
-    parser.add_argument("--leading-pair-only", type=int, default=0, help="if we only want the leading 2 jets of each event (0: False, not 0: True)")
+    parser.add_argument("--leading-pair-only", action="store_true", default=False, help="if we only want the leading 2 jets of each event")
     args = parser.parse_args()
 
     gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
