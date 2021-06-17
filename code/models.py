@@ -1,15 +1,17 @@
 """
     Model definitions.
 """
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import EdgeConv, global_mean_pool, DynamicEdgeConv
-import torch
 import torch_geometric.transforms as T
-from torch_geometric.nn import EdgeConv, global_mean_pool
+from loss_util import get_ptetaphi, load_emd_model
+from torch_scatter import scatter_mean, scatter
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
-from torch_scatter import scatter_mean
+from torch_geometric.data import Data
 from torch_geometric.nn import MetaLayer
+from torch_geometric.nn import EdgeConv, global_mean_pool, DynamicEdgeConv
+from torch_geometric.nn import EdgeConv, global_mean_pool
 
 # GNN AE using EdgeConv (mean aggregation graph operation). Basic GAE model.
 class EdgeNet(nn.Module):
@@ -40,6 +42,68 @@ class EdgeNet(nn.Module):
         x = self.encoder(x,data.edge_index)
         x = self.decoder(x,data.edge_index)
         return x
+
+class EdgeNetEMD(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean', emd_modname='EmdNNRel.best.pth'):
+        super(EdgeNetEMD, self).__init__()
+        encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, hidden_dim),
+                               nn.ReLU(),
+        )
+        
+        decoder_nn = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, input_dim)
+        )
+        
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder = EdgeConv(nn=encoder_nn,aggr=aggr)
+        self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
+
+        self.emd_model = load_emd_model(emd_modname, device='cuda' if torch.cuda.is_available() else 'cpu')
+
+    def emd_loss(self, x, y, batch):
+        self.emd_model.eval()
+        device = x.device.type
+        try:
+            x = get_ptetaphi(x, batch)
+            y = get_ptetaphi(y, batch)
+        except ValueError as e:
+            print('Error:', e)
+            raise RuntimeError('emd_loss had error') from e
+        # concatenate column of 1s to one jet and -1 to other jet
+        x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
+        y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
+        # normalize pt
+        Ex = scatter(src=x[:,0],index=batch)
+        Ey = scatter(src=y[:,0],index=batch)
+        _, counts = torch.unique_consecutive(batch, return_counts=True)
+        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
+        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
+        x[:,0] = x[:,0].clone() / Ex_repeat
+        y[:,0] = y[:,0].clone() / Ey_repeat
+        # create data object for emd model
+        jet_pair = torch.cat((x,y),0)
+        u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
+        data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(device)
+        # get emd between x and y
+        out = self.emd_model(data)
+        emd = out[0]    # ignore other model outputs
+        return emd
+
+    def forward(self, data):
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.edge_index)
+        x = self.decoder(x,data.edge_index)
+        print(x == data.x)
+        loss = self.emd_loss(x, data.x, data.batch)
+        return x, loss
     
 # GVAE based on EdgeNet model above.
 class EdgeNetVAE(nn.Module):
@@ -787,21 +851,3 @@ class MetaLayerGAE(torch.nn.Module):
         x, edge_attr, u = self.encoder(data.x, data.edge_index, None, None, data.batch)
         x, edge_attr, u = self.decoder(x, data.edge_index, None, u, data.batch)
         return x
-
-# models
-model_list = ['EdgeNet',
-              'EdgeNetDeeper',
-              'EdgeNetDeeper2',
-              'EdgeNetDeeper3',
-              'EdgeNetDeeper4',
-              'EdgeNetDeeper5',
-              'AE',
-              'EdgeNetVAE',
-              'EdgeNetEmbed',
-              'MetaLayerGAE',
-              'EdgeNetDeeperBN',
-              'EdgeNetDeeper2BN',
-              'EdgeNetDeeper3BN',
-              'EdgeNetDeeper4BN',
-              'EdgeNetDeeper5BN',
-              'EdgeNetDynamic']

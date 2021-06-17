@@ -3,6 +3,7 @@ import math
 import tqdm
 import torch
 import random
+import inspect
 import torch.nn as nn
 import os.path as osp
 from pathlib import Path
@@ -45,12 +46,12 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             batch_output = model(data)
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            except RuntimeError as e:
+            except ValueError as e:
                 torch.save([data],'/anomalyvol/debug/debug_input.pt')
-                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                raise RuntimeError('found nan in loss') from e
-                # exit('Check debug directory for model and input')
-            # square (for positivity) and avg into one val
+                if multi_gpu:
+                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                else:
+                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -88,7 +89,10 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
             except ValueError as e:
                 torch.save([data],'/anomalyvol/debug/debug_input.pt')
-                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                if multi_gpu:
+                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                else:
+                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
                 exit('Check debug directory for model and input')
             batch_loss = batch_loss.mean()
         else:
@@ -120,16 +124,20 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
             y = torch.cat([d.x for d in data]).to(device)
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
         elif loss_ftn_obj.name == 'emd_loss':
-            batch_output = model(data)
-            data_batch = Batch.from_data_list(data).to(device)
-            try:
-                batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-            except RuntimeError as e:
-                torch.save([data],'/anomalyvol/debug/debug_input.pt')
-                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                raise RuntimeError('found nan in loss') from e
-                # exit('Check debug directory for model and input')
-            # square (for positivity) and avg into one val
+            if not multi_gpu:
+                try:
+                    batch_output = model(data)
+                    data_batch = Batch.from_data_list(data).to(device)
+                    batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
+                except ValueError as e:
+                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    if multi_gpu:
+                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    else:
+                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    exit('Check debug directory for model and input')
+            else:
+                _, batch_loss = model(data)
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -156,14 +164,20 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj, no
             y = torch.cat([d.x for d in data]).to(device)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
         elif loss_ftn_obj.name == 'emd_loss':
-            batch_output = model(data)
-            data_batch = Batch.from_data_list(data).to(device)
-            try:
-                batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-            except ValueError as e:
-                torch.save([data],'/anomalyvol/debug/debug_input.pt')
-                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                exit('Check debug directory for model and input')
+            if not multi_gpu:
+                try:
+                    batch_output = model(data)
+                    data_batch = Batch.from_data_list(data).to(device)
+                    batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
+                except ValueError as e:
+                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    if multi_gpu:
+                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    else:
+                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    exit('Check debug directory for model and input')
+            else:
+                _, batch_loss = model(data)
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
@@ -185,19 +199,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mod-name', type=str, help='model name for saving and loading', required=True)
     parser.add_argument('--input-dir', type=str, help='location of dataset', required=True)
-    parser.add_argument('--output-dir', type=str, help='root folder to output experiment results to', default='/anomalyvol/experiments/', required=False)
+    parser.add_argument('--output-dir', type=str, help='root folder to output experiment results to', 
+                        default='/anomalyvol/experiments/', required=False)
     parser.add_argument('--box-num', type=int, help='0=QCD-background; 1=bb1; 2=bb2; 4=rnd', default=0, required=False)
     parser.add_argument('--lat-dim', type=int, help='latent space size', default=2, required=False)
     parser.add_argument('--no-E', action='store_true', 
                         help='toggle to remove energy from training and testing', default=True, required=False)
-    parser.add_argument('--model', choices=models.model_list, help='model selection', required=True)
+    parser.add_argument('--model', 
+                        choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models'], 
+                        help='model selection', required=True)
     parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
     parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
-    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse'], help='loss function', required=True)
+    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse'], 
+                        help='loss function', required=True)
     parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
                         help='emd models for loss', default='Symmetric1k.best.pth', required=False)
-    parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', default=None, required=False)
+    parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', 
+                        default=None, required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
     model_fname = args.mod_name
@@ -305,7 +324,10 @@ if __name__ == '__main__':
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             print('New best model saved to:',modpath)
-            torch.save(model.state_dict(),modpath)
+            if multi_gpu:
+                torch.save(model.module.state_dict(), modpath)
+            else:
+                torch.save(model.state_dict(), modpath)
             stale_epochs = 0
         else:
             print(f'Stale epoch\nBest: {best_valid_loss}\nCurr: {valid_loss}')
