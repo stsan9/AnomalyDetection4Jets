@@ -1,4 +1,0 @@
-1. graph losses
-2. collate again
-    - need to save shuffled version of data first (new branch and quick script / clear out pvc first)
-3. run
