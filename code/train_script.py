@@ -250,6 +250,7 @@ if __name__ == '__main__':
     else:
         model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
     # load in model
     modpath = osp.join(save_dir,model_fname+'.best.pth')
     try:
@@ -278,6 +279,7 @@ if __name__ == '__main__':
             else:
                 loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
                 valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+            scheduler.step(valid_loss)
             train_losses.append(loss)
             valid_losses.append(valid_loss)
         except RuntimeError as e:   # catch errors during runtime to save loss curves
