@@ -45,7 +45,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj):
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
             except ValueError as e:
-                torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                torch.save(data,'/anomalyvol/debug/debug_input.pt')
                 if multi_gpu:
                     torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                 else:
@@ -85,7 +85,7 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
             except RuntimeError as e:
-                torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                torch.save(data,'/anomalyvol/debug/debug_input.pt')
                 if multi_gpu:
                     torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                 else:
@@ -127,7 +127,7 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj):
                     data_batch = Batch.from_data_list(data).to(device)
                     batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
                 except RuntimeError as e:
-                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
                     if multi_gpu:
                         torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     else:
@@ -137,7 +137,7 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj):
                 try:
                     _, batch_loss = model(data)
                 except RuntimeError as e:
-                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
                     if multi_gpu:
                         torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     else:
@@ -175,7 +175,7 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
                     data_batch = Batch.from_data_list(data).to(device)
                     batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
                 except RuntimeError as e:
-                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
                     if multi_gpu:
                         torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     else:
@@ -185,7 +185,7 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
                 try:
                     _, batch_loss = model(data)
                 except RuntimeError as e:
-                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
                     if multi_gpu:
                         torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     else:
@@ -315,6 +315,8 @@ if __name__ == '__main__':
             train_losses.append(loss)
             valid_losses.append(valid_loss)
         except RuntimeError as e:   # catch errors during runtime to save loss curves
+            torch.save(train_loader.dataset, '/anomalyvol/debug/debug_train_loader.pt')
+            torch.save(valid_loader.dataset, '/anomalyvol/debug/debug_valid_loader.pt')
             if epoch > 3:
                 train_epochs = list(range(epoch+1))
                 early_stop_epoch = epoch - stale_epochs
