@@ -165,14 +165,14 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
                 except RuntimeError as e:
                     torch.save(data,'/anomalyvol/debug/debug_input.pt')
                     torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    print('Check debug directory for model and input')
+                    raise RuntimeError('Check debug directory for model and input') from e
             else:
                 try:    # using emd built into network
                     _, batch_loss = model(data)
                 except RuntimeError as e:
                     torch.save(data,'/anomalyvol/debug/debug_input.pt')
                     torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    print('Check debug directory for model and input')
+                    raise RuntimeError('Check debug directory for model and input') from e
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
