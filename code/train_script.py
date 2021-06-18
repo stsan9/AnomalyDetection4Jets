@@ -262,7 +262,10 @@ if __name__ == '__main__':
     if args.model == 'MetaLayerGAE':
         model = models.GNNAutoEncoder()
     else:
-        model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
+        if args.model[-3:] == 'EMD':
+            model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
+        else:
+            model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
     # load in model
