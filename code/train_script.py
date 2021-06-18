@@ -44,13 +44,10 @@ def test(model, loader, total, batch_size, loss_ftn_obj):
             batch_output = model(data)
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            except ValueError as e:
+            except RuntimeError as e:
                 torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                if multi_gpu:
-                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                else:
-                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                print('Check debug directory for model and input')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                raise RuntimeError('Check debug directory for model and input') from e
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -86,11 +83,8 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
             except RuntimeError as e:
                 torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                if multi_gpu:
-                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                else:
-                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                print('Check debug directory for model and input')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                raise RuntimeError('Check debug directory for model and input') from e
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
@@ -128,21 +122,15 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj):
                     batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
                 except RuntimeError as e:
                     torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    if multi_gpu:
-                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    else:
-                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    print('Check debug directory for model and input')
+                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    raise RuntimeError('Check debug directory for model and input') from e
             else:
                 try:
                     _, batch_loss = model(data)
                 except RuntimeError as e:
                     torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    if multi_gpu:
-                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    else:
-                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    print('Check debug directory for model and input')
+                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    raise RuntimeError('Check debug directory for model and input') from e
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -176,20 +164,14 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
                     batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
                 except RuntimeError as e:
                     torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    if multi_gpu:
-                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    else:
-                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     print('Check debug directory for model and input')
             else:
-                try:
+                try:    # using emd built into network
                     _, batch_loss = model(data)
                 except RuntimeError as e:
                     torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    if multi_gpu:
-                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    else:
-                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     print('Check debug directory for model and input')
             batch_loss = batch_loss.mean()
         else:
@@ -304,6 +286,7 @@ if __name__ == '__main__':
     valid_losses = []
     train_losses = []
     for epoch in range(0, n_epochs):
+
         try:
             if multi_gpu:
                 loss = train_parallel(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
@@ -332,7 +315,6 @@ if __name__ == '__main__':
 
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
         print('               Validation Loss: {:.4f}'.format(valid_loss))
-
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
             print('New best model saved to:',modpath)
@@ -347,8 +329,9 @@ if __name__ == '__main__':
         if stale_epochs >= patience:
             print('Early stopping after %i stale epochs'%patience)
             break
+
+    # model training done
     train_epochs = list(range(epoch+1))
     early_stop_epoch = epoch - stale_epochs
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
-            
     print('Completed')
