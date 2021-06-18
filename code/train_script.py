@@ -22,7 +22,7 @@ multi_gpu = torch.cuda.device_count()>1
 
 # train and test helper functions
 @torch.no_grad()
-def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
+def test(model, loader, total, batch_size, loss_ftn_obj):
     model.eval()
 
     sum_loss = 0.
@@ -33,8 +33,6 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
         data = data.to(device)
 
         # format data
-        if (no_E == True):
-            data.x = data.x[:,:3]   # px, py, pz
         y = data.x
         y = y.contiguous()
 
@@ -52,6 +50,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
                     torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                 else:
                     torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                print('Check debug directory for model and input')
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -62,7 +61,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
 
     return sum_loss/(i+1)
 
-def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = False):
+def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
     model.train()
 
     sum_loss = 0.
@@ -73,8 +72,6 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
         data = data.to(device)
 
         # format data
-        if (no_E == True):
-            data.x = data.x[:,:3]
         y = data.x
         y = y.contiguous()
         optimizer.zero_grad()
@@ -87,13 +84,13 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
             batch_output = model(data)
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            except ValueError as e:
+            except RuntimeError as e:
                 torch.save([data],'/anomalyvol/debug/debug_input.pt')
                 if multi_gpu:
                     torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                 else:
                     torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                exit('Check debug directory for model and input')
+                print('Check debug directory for model and input')
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
@@ -111,7 +108,7 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = Fals
 
 # train and test helper functions
 @torch.no_grad()
-def test_parallel(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
+def test_parallel(model, loader, total, batch_size, loss_ftn_obj):
     model.eval()
 
     sum_loss = 0.
@@ -129,15 +126,23 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
                     batch_output = model(data)
                     data_batch = Batch.from_data_list(data).to(device)
                     batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-                except ValueError as e:
+                except RuntimeError as e:
                     torch.save([data],'/anomalyvol/debug/debug_input.pt')
                     if multi_gpu:
                         torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     else:
                         torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    exit('Check debug directory for model and input')
+                    print('Check debug directory for model and input')
             else:
-                _, batch_loss = model(data)
+                try:
+                    _, batch_loss = model(data)
+                except RuntimeError as e:
+                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    if multi_gpu:
+                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    else:
+                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    print('Check debug directory for model and input')
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -150,7 +155,7 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj, no_E = False):
 
     return sum_loss/(i+1)
 
-def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj, no_E = False):
+def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
     model.train()
 
     sum_loss = 0.
@@ -169,15 +174,23 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj, no
                     batch_output = model(data)
                     data_batch = Batch.from_data_list(data).to(device)
                     batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-                except ValueError as e:
+                except RuntimeError as e:
                     torch.save([data],'/anomalyvol/debug/debug_input.pt')
                     if multi_gpu:
                         torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
                     else:
                         torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    exit('Check debug directory for model and input')
+                    print('Check debug directory for model and input')
             else:
-                _, batch_loss = model(data)
+                try:
+                    _, batch_loss = model(data)
+                except RuntimeError as e:
+                    torch.save([data],'/anomalyvol/debug/debug_input.pt')
+                    if multi_gpu:
+                        torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    else:
+                        torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                    print('Check debug directory for model and input')
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
@@ -203,8 +216,6 @@ if __name__ == '__main__':
                         default='/anomalyvol/experiments/', required=False)
     parser.add_argument('--box-num', type=int, help='0=QCD-background; 1=bb1; 2=bb2; 4=rnd', default=0, required=False)
     parser.add_argument('--lat-dim', type=int, help='latent space size', default=2, required=False)
-    parser.add_argument('--no-E', action='store_true', 
-                        help='toggle to remove energy from training and testing', default=True, required=False)
     parser.add_argument('--model', 
                         choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models'], 
                         help='model selection', required=True)
@@ -260,8 +271,7 @@ if __name__ == '__main__':
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     # create model
-    no_E = args.no_E
-    input_dim = 3 if (args.no_E or args.loss=='emd_loss') else 4
+    input_dim = 3 if (args.loss=='emd_loss') else 4
     big_dim = 32
     hidden_dim = args.lat_dim
     n_epochs = 200
@@ -278,7 +288,7 @@ if __name__ == '__main__':
     try:
         model.load_state_dict(torch.load(modpath))
         print('Loaded model')
-        best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+        best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
         print(f'Saved model valid loss: {best_valid_loss}')
     except:
         print('Creating new model')
@@ -296,11 +306,11 @@ if __name__ == '__main__':
     for epoch in range(0, n_epochs):
         try:
             if multi_gpu:
-                loss = train_parallel(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
-                valid_loss = test_parallel(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+                loss = train_parallel(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
+                valid_loss = test_parallel(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
             else:
-                loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj, no_E)
-                valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj, no_E)
+                loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
+                valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
             scheduler.step(valid_loss)
             train_losses.append(loss)
             valid_losses.append(valid_loss)
@@ -336,7 +346,7 @@ if __name__ == '__main__':
             print('Early stopping after %i stale epochs'%patience)
             break
     train_epochs = list(range(epoch+1))
-    early_stop_epoch = epoch - stale_epochs + 1
+    early_stop_epoch = epoch - stale_epochs
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
             
     print('Completed')
