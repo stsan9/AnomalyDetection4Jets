@@ -1,12 +1,18 @@
+import sys
 import torch
+import emd_models
+import numpy as np
 import torch_scatter
 import os.path as osp
-import numpy as np
-import emd_models
-import sys
 from torch_geometric.data import Data
 
-torch.autograd.set_detect_anomaly(True)
+multi_gpu = torch.cuda.device_count()>1
+
+def load_emd_model(modname, device):
+    emd_model = getattr(emd_models, modname[:-9])(device=device)
+    modpath = osp.join('/anomalyvol/emd_models/', modname)
+    emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
+    return emd_model
 
 def arctanh(x):
     return torch.log1p(2*x/(1-x)) / 2
@@ -34,27 +40,18 @@ def get_ptetaphi(x,batch):
     return mat
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname='Symmetric1k.best.pth', device='cuda:0'):
+    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0'):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         else:
             loss = getattr(self, lossname)
-            if lossname == 'emd_loss':
-                self.emd_model = self.load_emd_model(emd_modname,device)
+            if lossname == 'emd_loss' and not multi_gpu:
+                # keep emd model in memory
+                # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
+                self.emd_model = load_emd_model(emd_modname,device)
         self.name = lossname
         self.loss_ftn = loss
         self.device = device
-
-    def load_emd_model(self, modname, device):
-        if modname == 'emd_rel_1k.best.pth':
-            emd_model = emd_models.SymmetricDDEdgeNetRel(device=device)
-        elif modname == 'emd_spl_1k.best.pth':
-            emd_model = emd_models.SymmetricDDEdgeNetSpl(device=device)
-        else:
-            emd_model = emd_models.SymmetricDDEdgeNet(device=device)
-        modpath = osp.join('/anomalyvol/emd_models/', modname)
-        emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
-        return emd_model
 
     def chamfer_loss(self, x,y):
         nparts = x.shape[0]
@@ -85,7 +82,6 @@ class LossFunction:
         # concatenate column of 1s to one jet and -1 to other jet
         x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
         y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
-        # import pdb; pdb.set_trace()
         # normalize pt
         Ex = torch_scatter.scatter(src=x[:,0],index=batch)
         Ey = torch_scatter.scatter(src=y[:,0],index=batch)
