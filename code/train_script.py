@@ -256,9 +256,9 @@ if __name__ == '__main__':
     input_dim = 3
     big_dim = 32
     hidden_dim = args.lat_dim
-    n_epochs = 200
     lr = args.lr
     patience = args.patience
+
     if args.model == 'MetaLayerGAE':
         model = models.GNNAutoEncoder()
     else:
@@ -266,13 +266,22 @@ if __name__ == '__main__':
             model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
         else:
             model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
+
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
+
+    valid_losses = []
+    train_losses = []
+    start_epoch = 0
+    n_epochs = 200
+
     # load in model
     modpath = osp.join(save_dir,model_fname+'.best.pth')
     try:
         model.load_state_dict(torch.load(modpath))
+        train_losses, valid_losses, start_epoch = torch.load(osp.join(save_dir,'losses.pt'))
         print('Loaded model')
+        torch.load()
         best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
         print(f'Saved model valid loss: {best_valid_loss}')
     except:
@@ -285,10 +294,7 @@ if __name__ == '__main__':
     # Training loop
     stale_epochs = 0
     loss = best_valid_loss
-
-    valid_losses = []
-    train_losses = []
-    for epoch in range(0, n_epochs):
+    for epoch in range(start_epoch, n_epochs):
 
         try:
             if multi_gpu:
@@ -325,6 +331,7 @@ if __name__ == '__main__':
                 torch.save(model.module.state_dict(), modpath)
             else:
                 torch.save(model.state_dict(), modpath)
+                torch.save((train_losses, valid_losses, epoch+1), osp.join(save_dir,'losses.pt'))
             stale_epochs = 0
         else:
             print(f'Stale epoch\nBest: {best_valid_loss}\nCurr: {valid_loss}')
