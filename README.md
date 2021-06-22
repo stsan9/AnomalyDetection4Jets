@@ -28,14 +28,14 @@ kubectl -n cms-ml exec -it anom-pod -- bash
 ```
 This lets you access a pod (remote environment) where our data and models are stored.
 
-To work on the code within the pod and edit with the editor of your choice (vim, emacs).
+To work on the code within the pod and edit with the editor of your choice (vim, emacs):
 ```
 cd ~/work
 git clone [the URL of your fork]
 cd AnomalyDetection4Jets/code
 ```
 
-To see what's stored in our volume, do `cd /anomalyvol/` and look around the directory. Important directories include
+To see what's stored in our volume, do `cd /anomalyvol/` and look around the directory. Important directories include:
 - `/anomalyvol/experiments`
 - `/anomalyvol/data`
 - `/anomalyvol/emd_models`
