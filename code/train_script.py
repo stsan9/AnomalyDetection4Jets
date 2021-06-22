@@ -314,7 +314,7 @@ if __name__ == '__main__':
                 valid_losses = valid_losses[:valid_epochs]
                 loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
             print('Error during training',e)
-            exit('Exiting Early')
+            raise RuntimeError('Exiting Early due to errors', e)
 
         print('Epoch: {:02d}, Training Loss:   {:.4f}'.format(epoch, loss))
         print('               Validation Loss: {:.4f}'.format(valid_loss))
