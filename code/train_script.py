@@ -253,7 +253,7 @@ if __name__ == '__main__':
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     # create model
-    input_dim = 3 if (args.loss=='emd_loss') else 4
+    input_dim = 3
     big_dim = 32
     hidden_dim = args.lat_dim
     n_epochs = 200
