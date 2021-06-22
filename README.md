@@ -80,7 +80,7 @@ Usually creating the whole dataset takes a long time and memory so we'll use a j
 ```
 kubectl -n cms-ml create -f anomaly-graph-job.yml
 ```
-You can delete the job once using:
+You can delete the job once done using:
 ```
 kubectl -n cms-ml delete jobs anomaly-graph-job.yml
 ```
