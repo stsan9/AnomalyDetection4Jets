@@ -87,8 +87,8 @@ class EdgeNetEMD(nn.Module):
         _, counts = torch.unique_consecutive(batch, return_counts=True)
         Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
         Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
-        x[:,0] = x[:,0].clone() / Ex_repeat
-        y[:,0] = y[:,0].clone() / Ey_repeat
+        x[:,0] = x[:,0].clone() / (Ex_repeat + 1e-12)
+        y[:,0] = y[:,0].clone() / Ey_repeat + 1e-12)
         # create data object for emd model
         jet_pair = torch.cat((x,y),0)
         u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
