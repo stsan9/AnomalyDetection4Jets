@@ -7,6 +7,7 @@ import os.path as osp
 from torch_geometric.data import Data
 
 multi_gpu = torch.cuda.device_count()>1
+eps = 1e-12
 
 def load_emd_model(modname, device):
     emd_model = getattr(emd_models, modname[:-9])(device=device)
@@ -15,16 +16,16 @@ def load_emd_model(modname, device):
     return emd_model
 
 def arctanh(x):
-    return torch.log1p(2*x/(1-x + 1e-12)) / 2
+    return torch.log1p(2*x/(1-x + eps)) / 2
 
 def get_ptetaphi(x,batch):
     px = x[:,0]
     py = x[:,1]
     pz = x[:,2]
-    p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz) + 1e-12)
-    pt = torch.sqrt(torch.square(px) + torch.square(py) 1e-12)
-    eta = arctanh(pz / (p + 1e-12))
-    phi = torch.atan(py / (px + 1e-12))
+    p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz) + eps)
+    pt = torch.sqrt(torch.square(px) + torch.square(py) + eps)
+    eta = arctanh(pz / (p + eps))
+    phi = torch.atan(py / (px + eps))
     ts = [px,py,pz,p,pt,eta,phi]
     for e in ts:
         if True in torch.isnan(e):
@@ -33,7 +34,7 @@ def get_ptetaphi(x,batch):
     # center by pt centroid while accounting for torch geo batching
     n = torch_scatter.scatter(mat[:,1:3].clone() * mat[:,0,None].clone(), batch, dim=0, reduce='sum')
     d = torch_scatter.scatter(mat[:,0], batch, dim=0, reduce='sum')
-    yphi_avg = (n.T / (d + 1e-12)).T  # returns yphi_avg for each batch
+    yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
     _, counts = torch.unique_consecutive(batch, return_counts=True)
     yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0) # repeat per batch for subtraction step
     mat[:,1:3] -= yphi_avg
@@ -88,8 +89,8 @@ class LossFunction:
         _, counts = torch.unique_consecutive(batch, return_counts=True)
         Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
         Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
-        x[:,0] = x[:,0].clone() / (Ex_repeat + 1e-12)
-        y[:,0] = y[:,0].clone() / (Ey_repeat + 1e-12)
+        x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
+        y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
         # create data object for emd model
         jet_pair = torch.cat((x,y),0)
         u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
