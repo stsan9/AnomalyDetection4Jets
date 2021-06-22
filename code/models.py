@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.transforms as T
-from loss_util import get_ptetaphi, load_emd_model
+from loss_util import get_ptetaphi, load_emd_model, eps
 from torch_scatter import scatter_mean, scatter
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 from torch_geometric.data import Data
@@ -87,8 +87,8 @@ class EdgeNetEMD(nn.Module):
         _, counts = torch.unique_consecutive(batch, return_counts=True)
         Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
         Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
-        x[:,0] = x[:,0].clone() / (Ex_repeat + loss_util.eps)
-        y[:,0] = y[:,0].clone() / (Ey_repeat + loss_util.eps)
+        x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
+        y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
         # create data object for emd model
         jet_pair = torch.cat((x,y),0)
         u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
