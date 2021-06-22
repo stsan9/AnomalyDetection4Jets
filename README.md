@@ -55,6 +55,7 @@ anomalyvol-2            Bound    pvc-6bb604aa-5a40-44d4-af1e-fb6f38b4d1fb   1000
 ```
 kubectl config set-context nautilus --namespace=cms-ml
 ```
+-Any changes you save in the home directory of a pod will get deleted (~) once the pod terminates. Things saved in `/anomalyvol/` will remain.
 
 # Running the Code
 To know how to run the code and what all the flags do I recommend looking through the argparse section of the corresponding files. Below are some examples of how the commands will look.
@@ -62,7 +63,7 @@ To know how to run the code and what all the flags do I recommend looking throug
 ## Generate the Dataset
 Make sure you have a directory somewhere with the raw data in the `raw/` directory. Look at `/anomalyvol/data/bb_train_sets/bb0_xyz/` for reference. The raw data can be downloaded from the [Zenodo page](https://zenodo.org/record/3596919#.XkSGTRNKhTZ) linked above, and sent to the volume using:
 ```
-kubectl cp -n cms-ml events_LHCO2020_backgroundMC_Pythia.h5 cms-ml/anom-pod:/anomalyvol/data/bb_train_sets/your_directory/raw/events_LHCO2020_backgroundMC_Pythia.h5
+kubectl -n cms-ml cp events_LHCO2020_backgroundMC_Pythia.h5 cms-ml/anom-pod:/anomalyvol/data/bb_train_sets/your_directory/raw/events_LHCO2020_backgroundMC_Pythia.h5
 ```
 Replace the name of the file or the path with whatever you're sending over.
 
