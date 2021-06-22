@@ -28,7 +28,7 @@ kubectl -n cms-ml exec -it anom-pod -- bash
 ```
 This lets you access a pod (remote environment) where our data and models are stored.
 
-To work on the code within the pod and edit with the editor of your choice (vim, emacs):
+To work on the code within the pod and edit with Vim or Emacs:
 ```
 cd ~/work
 git clone [the URL of your fork]
@@ -39,6 +39,11 @@ To see what's stored in our volume, do `cd /anomalyvol/` and look around the dir
 - `/anomalyvol/experiments`
 - `/anomalyvol/data`
 - `/anomalyvol/emd_models`
+
+Once done using your pod terminate it with:
+```
+kubectl -n cms-ml delete pods anom-pod
+```
 
 ### Notes
 - It's mandatory to read the [Nautilus documentation](https://ucsd-prp.gitlab.io/userdocs/start/toc-start/) for usage policies and other details
@@ -75,8 +80,14 @@ Usually creating the whole dataset takes a long time and memory so we'll use a j
 ```
 kubectl -n cms-ml create -f anomaly-graph-job.yml
 ```
+You can delete the job once using:
+```
+kubectl -n cms-ml delete jobs anomaly-graph-job.yml
+```
 
-Note: you do not want to generate the whole dataset on your local machine. Once processed it takes a lot of space.
+Notes:
+- you do not want to generate the whole dataset on your local machine. Once processed it takes a lot of space.
+- for bb0 (the background dataset we use for training) you can find it preprocessed in `/anomalyvol/data/bb_train_sets/bb0_xyz/`
 
 ## Training
 ```
