@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gae-emd-spl
+  labels:
+    jobgroup: gae-train-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: postprocessing
+        image: gitlab-registry.nautilus.optiputer.net/jmduarte/anomalydetection4jets:latest
+        command:
+        - "python"
+        args:
+        - "/opt/repo/AnomalyDetection4Jets/code/train_script.py"
+        - --mod-name
+        - "EdgeNetEMD_emd_spl_nn"
+        - --input-dir
+        - "/anomalyvol/data/bb_train_sets/bb0_xyz"
+        - --box-num
+        - "0"
+        - --model
+        - "EdgeNetEMD"
+        - --batch-size
+        - "1028"
+        - --lr
+        - "1e-3"
+        - --loss
+        - "emd_loss"
+        - --emd-model-name
+        - "EmdNNSpl.best.pth"
+        volumeMounts:
+        - mountPath: /anomalyvol
+          name: anomalyvol-2
+        - name: git-repo
+          mountPath: /opt/repo
+        resources:
+          limits:
+            memory: 256Gi
+            cpu: "1"
+            nvidia.com/gpu: "4"
+          requests:
+            memory: 128Gi
+            cpu: "1"
+            nvidia.com/gpu: "4"    
+      initContainers:
+      - name: init-clone-repo
+        image: alpine/git
+        args:
+          - clone
+          - --single-branch
+          - https://github.com/stsan9/AnomalyDetection4Jets
+          - -b
+          - master
+          - /opt/repo/AnomalyDetection4Jets
+        volumeMounts:
+          - name: git-repo
+            mountPath: /opt/repo
+      volumes:
+      - name: git-repo
+        emptyDir: {}
+      - name: anomalyvol-2
+        persistentVolumeClaim:
+          claimName: anomalyvol-2
+      restartPolicy: Never
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: gpu-type
+                  operator: In
+                  values:
+                  - 1080Ti
+                  - "1080"
+                  - 2080Ti
+  backoffLimit: 5
