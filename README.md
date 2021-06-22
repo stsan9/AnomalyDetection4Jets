@@ -67,6 +67,7 @@ To know how to run the code and what all the flags do I recommend looking throug
 
 ## Generate the Dataset
 In the volume you can already find the processed dataset in `/anomalyvol/data`, but if you need to generate the data in the future:
+
 Make sure you have a directory somewhere with the raw data in the `raw/` directory. Look at `/anomalyvol/data/bb_train_sets/bb0_xyz/` for reference. The raw data can be downloaded from the [Zenodo page](https://zenodo.org/record/3596919#.XkSGTRNKhTZ) linked above, and sent to the volume using:
 ```
 kubectl -n cms-ml cp events_LHCO2020_backgroundMC_Pythia.h5 cms-ml/anom-pod:/anomalyvol/data/bb_train_sets/your_directory/raw/events_LHCO2020_backgroundMC_Pythia.h5
