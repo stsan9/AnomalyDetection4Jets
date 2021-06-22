@@ -21,8 +21,8 @@ def get_ptetaphi(x,batch):
     px = x[:,0]
     py = x[:,1]
     pz = x[:,2]
-    p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz))
-    pt = torch.sqrt(torch.square(px) + torch.square(py))
+    p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz) + 1e-12)
+    pt = torch.sqrt(torch.square(px) + torch.square(py) 1e-12)
     eta = arctanh(pz / (p + 1e-12))
     phi = torch.atan(py / (px + 1e-12))
     ts = [px,py,pz,p,pt,eta,phi]
