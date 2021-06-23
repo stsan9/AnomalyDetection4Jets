@@ -35,6 +35,15 @@ git clone [the URL of your fork]
 cd AnomalyDetection4Jets/code
 ```
 
+If you want to use jupyter notebook, on your local machine do:
+```
+kubectl port-forward anomaly-pod 8888:8888
+```
+Then once in the pod run the following command in whichever directory you want to work in:
+```
+jupyter notebook --ip 0.0.0.0 --port 8888 --no-browser
+```
+
 To see what's stored in our volume, do `cd /anomalyvol/` and look around the directory. Important directories include:
 - `/anomalyvol/experiments`
 - `/anomalyvol/data`
