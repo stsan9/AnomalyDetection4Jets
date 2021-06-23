@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_geometric.transforms as T
-from loss_util import get_ptetaphi, load_emd_model, eps
+from loss_util import get_ptetaphi, load_emd_model, eps, preprocess_emdnn_input
 from torch_scatter import scatter_mean, scatter
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 from torch_geometric.data import Data
@@ -71,31 +71,13 @@ class EdgeNetEMD(nn.Module):
 
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
-        device = x.device.type
         try:
-            x = get_ptetaphi(x, batch)
-            y = get_ptetaphi(y, batch)
+            data = preprocess_emdnn_input(x, y, batch)
         except ValueError as e:
             print('Error:', e)
             raise RuntimeError('emd_loss had error') from e
-        # concatenate column of 1s to one jet and -1 to other jet
-        x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
-        y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
-        # normalize pt
-        Ex = scatter(src=x[:,0],index=batch)
-        Ey = scatter(src=y[:,0],index=batch)
-        _, counts = torch.unique_consecutive(batch, return_counts=True)
-        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
-        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
-        x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
-        y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
-        # create data object for emd model
-        jet_pair = torch.cat((x,y),0)
-        u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
-        data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(device)
-        # get emd between x and y
         out = self.emd_model(data)
-        emd = out[0]    # ignore other model outputs
+        emd = out[0]
         return emd
 
     def forward(self, data):

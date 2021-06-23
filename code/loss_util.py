@@ -61,6 +61,7 @@ def preprocess_emdnn_input(x, y, batch):
     x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
     y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
 
+    device = x.device.type
     x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
     y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
     jet_pair = torch.cat((x,y),0)
@@ -78,7 +79,8 @@ class LossFunction:
             if lossname == 'emd_loss' and not multi_gpu:
                 # keep emd model in memory
                 # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
-                self.emd_model = load_emd_model(emd_modname,device)
+                emd_model = load_emd_model(emd_modname,device)
+                self.emd_model = emd_model.requires_grad_(False)
         self.name = lossname
         self.loss_ftn = loss
         self.device = device
@@ -102,13 +104,11 @@ class LossFunction:
 
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
-        device = x.device.type
         try:
             data = preprocess_emdnn_input(x, y, batch)
         except ValueError as e:
             print('Error:', e)
             raise RuntimeError('emd_loss had error') from e
-        # get emd between x and y
         out = self.emd_model(data)
-        emd = out[0]    # ignore other model outputs
+        emd = out[0]
         return emd
