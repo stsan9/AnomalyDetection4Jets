@@ -41,7 +41,7 @@ def preprocess_emdnn_input(x, y, batch):
     # center by pt centroid while accounting for torch geo batching
     _, counts = torch.unique_consecutive(batch, return_counts=True)
     n = torch_scatter.scatter(x[:,1:3].clone() * x[:,0,None].clone(), batch, dim=0, reduce='sum')
-    d = torch_scatter.scatter(y[:,0], batch, dim=0, reduce='sum')
+    d = torch_scatter.scatter(x[:,0], batch, dim=0, reduce='sum')
     yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
     yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
     x[:,1:3] -= yphi_avg
@@ -66,7 +66,7 @@ def preprocess_emdnn_input(x, y, batch):
     y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
     jet_pair = torch.cat((x,y),0)
     u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
-    data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
+    data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(device)
     return data
 
 
