@@ -31,14 +31,43 @@ def get_ptetaphi(x,batch):
         if True in torch.isnan(e):
             raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
-    # center by pt centroid while accounting for torch geo batching
-    n = torch_scatter.scatter(mat[:,1:3].clone() * mat[:,0,None].clone(), batch, dim=0, reduce='sum')
-    d = torch_scatter.scatter(mat[:,0], batch, dim=0, reduce='sum')
-    yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
-    _, counts = torch.unique_consecutive(batch, return_counts=True)
-    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0) # repeat per batch for subtraction step
-    mat[:,1:3] -= yphi_avg
     return mat
+
+def preprocess_emdnn_input(x, y, batch):
+    # px py pz -> pt eta phi
+    x = get_ptetaphi(x, batch)
+    y = get_ptetaphi((y+eps), batch)
+
+    # center by pt centroid while accounting for torch geo batching
+    _, counts = torch.unique_consecutive(batch, return_counts=True)
+    n = torch_scatter.scatter(x[:,1:3].clone() * x[:,0,None].clone(), batch, dim=0, reduce='sum')
+    d = torch_scatter.scatter(y[:,0], batch, dim=0, reduce='sum')
+    yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
+    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
+    x[:,1:3] -= yphi_avg
+
+    n = torch_scatter.scatter(y[:,1:3].clone() * y[:,0,None].clone(), batch, dim=0, reduce='sum')
+    d = torch_scatter.scatter(y[:,0], batch, dim=0, reduce='sum')
+    yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
+    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
+    y[:,1:3] -= yphi_avg
+    y = y + eps
+ 
+    # normalize pt
+    Ex = torch_scatter.scatter(src=x[:,0],index=batch, reduce='sum')
+    Ey = torch_scatter.scatter(src=y[:,0],index=batch, reduce='sum')
+    Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
+    Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
+    x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
+    y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
+
+    x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
+    y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
+    jet_pair = torch.cat((x,y),0)
+    u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
+    data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
+    return data
+
 
 class LossFunction:
     def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0'):
@@ -75,26 +104,10 @@ class LossFunction:
         self.emd_model.eval()
         device = x.device.type
         try:
-            x = get_ptetaphi(x, batch)
-            y = get_ptetaphi(y, batch)
+            data = preprocess_emdnn_input(x, y, batch)
         except ValueError as e:
             print('Error:', e)
             raise RuntimeError('emd_loss had error') from e
-        # concatenate column of 1s to one jet and -1 to other jet
-        x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
-        y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
-        # normalize pt
-        Ex = torch_scatter.scatter(src=x[:,0],index=batch)
-        Ey = torch_scatter.scatter(src=y[:,0],index=batch)
-        _, counts = torch.unique_consecutive(batch, return_counts=True)
-        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
-        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
-        x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
-        y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
-        # create data object for emd model
-        jet_pair = torch.cat((x,y),0)
-        u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
-        data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(self.device)
         # get emd between x and y
         out = self.emd_model(data)
         emd = out[0]    # ignore other model outputs
