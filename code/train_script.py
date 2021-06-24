@@ -18,6 +18,7 @@ from graph_data import GraphDataset
 from plot_util import loss_curves, plot_reco_difference
 
 torch.manual_seed(0)
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 multi_gpu = torch.cuda.device_count()>1
 
 @torch.no_grad()
@@ -195,7 +196,6 @@ def main(args):
         test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
 
     # specify loss function
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     # create model
