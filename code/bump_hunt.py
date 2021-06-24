@@ -434,5 +434,5 @@ if __name__ == "__main__":
         df = pd.read_pickle(osp.join(output_dir,model_fname,bb_name,'df.pkl'))
         input_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'input_fts.pt'))
         reco_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'reco_fts.pt'))
-    plot_reco_difference(input_fts, reco_fts, model_fname, bb_name, save_path)
+    plot_reco_difference(input_fts, reco_fts, model_fname, save_path)
     bump_hunt(df, cuts, model_fname, model, bb_name, save_path)

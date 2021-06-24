@@ -15,7 +15,7 @@ import models
 import emd_models
 from loss_util import LossFunction
 from graph_data import GraphDataset
-from plot_util import loss_curves
+from plot_util import loss_curves, plot_reco_difference
 
 torch.manual_seed(0)
 multi_gpu = torch.cuda.device_count()>1
@@ -199,16 +199,21 @@ if __name__ == '__main__':
     # 80:10:10 split datasets
     fulllen = len(bag)
     train_len = int(0.8 * fulllen)
+    tv_len = int(0.10 * fulllen)
     train_dataset = bag[:train_len]
-    valid_dataset = bag[train_len:]
+    valid_dataset = bag[train_len:train_len + tv_len]
+    test_dataset  = bag[train_len + tv_len:]
     train_samples = len(train_dataset)
     valid_samples = len(valid_dataset)
+    test_samples = len(test_dataset)
     if multi_gpu:
         train_loader = DataListLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
         valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+        test_loader = DataListLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
     else:
         train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
         valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
 
     # specify loss function
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
@@ -291,4 +296,23 @@ if __name__ == '__main__':
     train_epochs = list(range(epoch+1))
     early_stop_epoch = epoch - stale_epochs
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
+
+    # compare input and reconstructions
+    input_fts = []
+    reco_fts = []
+    for t in test_loader:
+        model.eval()
+        if isinstance(t, list):
+            for d in t:
+                input_fts.append(d.x)
+        else:
+            input_fts.append(t.x)
+            t.to(device)
+        reco_out = model(t)
+        if isinstance(reco_out, tuple):
+            reco_out = reco_out[0]
+        reco_fts.append(reco_out.cpu().detach())
+    input_fts = torch.cat(input_fts)
+    reco_fts = torch.cat(reco_fts)
+    plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train'))
     print('Completed')
