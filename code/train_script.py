@@ -40,7 +40,7 @@ def test(model, loader, total, batch_size, loss_ftn_obj):
         if loss_ftn_obj.name == 'vae_loss':
             batch_output, mu, log_var = model(data)
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
-        elif loss_ftn_obj.name == 'emd_loss':
+        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
             batch_output = model(data)
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
@@ -77,7 +77,7 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
         if loss_ftn_obj.name == 'vae_loss':
             batch_output, mu, log_var = model(data)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
-        elif loss_ftn_obj.name == 'emd_loss':
+        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
             batch_output = model(data)
             try:
                 batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
@@ -114,23 +114,23 @@ def test_parallel(model, loader, total, batch_size, loss_ftn_obj):
             batch_output, mu, log_var = model(data)
             y = torch.cat([d.x for d in data]).to(device)
             batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
-        elif loss_ftn_obj.name == 'emd_loss':
-            if not multi_gpu:
-                try:
-                    batch_output = model(data)
-                    data_batch = Batch.from_data_list(data).to(device)
-                    batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-                except RuntimeError as e:
-                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    raise RuntimeError('Check debug directory for model and input') from e
-            else:
-                try:
-                    _, batch_loss = model(data)
-                except RuntimeError as e:
-                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    raise RuntimeError('Check debug directory for model and input') from e
+        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
+            try:
+                batch_output = model(data)
+                data_batch = Batch.from_data_list(data).to(device)
+                batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
+            except RuntimeError as e:
+                torch.save(data,'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                raise RuntimeError('Check debug directory for model and input') from e
+            batch_loss_item = batch_loss.mean().item()
+        elif loss_ftn_obj.name == 'emd_loss_layer':
+            try:    # using emd built into network
+                _, batch_loss = model(data)
+            except RuntimeError as e:
+                torch.save(data,'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                raise RuntimeError('Check debug directory for model and input') from e
             batch_loss_item = batch_loss.mean().item()
         else:
             batch_output = model(data)
@@ -156,23 +156,23 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
             batch_output, mu, log_var = model(data)
             y = torch.cat([d.x for d in data]).to(device)
             batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
-        elif loss_ftn_obj.name == 'emd_loss':
-            if not multi_gpu:
-                try:
-                    batch_output = model(data)
-                    data_batch = Batch.from_data_list(data).to(device)
-                    batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-                except RuntimeError as e:
-                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    raise RuntimeError('Check debug directory for model and input') from e
-            else:
-                try:    # using emd built into network
-                    _, batch_loss = model(data)
-                except RuntimeError as e:
-                    torch.save(data,'/anomalyvol/debug/debug_input.pt')
-                    torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
-                    raise RuntimeError('Check debug directory for model and input') from e
+        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
+            try:
+                batch_output = model(data)
+                data_batch = Batch.from_data_list(data).to(device)
+                batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
+            except RuntimeError as e:
+                torch.save(data,'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                raise RuntimeError('Check debug directory for model and input') from e
+            batch_loss = batch_loss.mean()
+        elif loss_ftn_obj.name == 'emd_loss_layer':
+            try:    # using emd built into network
+                _, batch_loss = model(data)
+            except RuntimeError as e:
+                torch.save(data,'/anomalyvol/debug/debug_input.pt')
+                torch.save(model.module.state_dict(),'/anomalyvol/debug/debug_model.pth')
+                raise RuntimeError('Check debug directory for model and input') from e
             batch_loss = batch_loss.mean()
         else:
             batch_output = model(data)
@@ -204,7 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
     parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
-    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse'], 
+    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse','emd_loss_layer'], 
                         help='loss function', required=True)
     parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
                         help='emd models for loss', default='Symmetric1k.best.pth', required=False)
