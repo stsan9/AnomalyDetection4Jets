@@ -286,8 +286,8 @@ if __name__ == '__main__':
                 torch.save((train_losses, valid_losses, epoch+1), osp.join(save_dir,'losses.pt'))
             stale_epochs = 0
         else:
-            print(f'Stale epoch\nBest: {best_valid_loss}\nCurr: {valid_loss}')
             stale_epochs += 1
+            print(f'Stale epoch: {stale_epochs}\nBest: {best_valid_loss}\nCurr: {valid_loss}')
         if stale_epochs >= patience:
             print('Early stopping after %i stale epochs'%patience)
             break
