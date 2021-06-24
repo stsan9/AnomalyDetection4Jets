@@ -277,6 +277,7 @@ def main(args):
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
 
     # compare input and reconstructions
+    model.load_state_dict(torch.load(modpath))
     input_fts = []
     reco_fts = []
     for t in test_loader:
