@@ -227,7 +227,6 @@ def main(args):
         model.load_state_dict(torch.load(modpath))
         train_losses, valid_losses, start_epoch = torch.load(osp.join(save_dir,'losses.pt'))
         print('Loaded model')
-        torch.load()
         best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
         print(f'Saved model valid loss: {best_valid_loss}')
     except:
@@ -262,7 +261,7 @@ def main(args):
                 torch.save(model.module.state_dict(), modpath)
             else:
                 torch.save(model.state_dict(), modpath)
-                torch.save((train_losses, valid_losses, epoch+1), osp.join(save_dir,'losses.pt'))
+            torch.save((train_losses, valid_losses, epoch+1), osp.join(save_dir,'losses.pt'))
             stale_epochs = 0
         else:
             stale_epochs += 1
