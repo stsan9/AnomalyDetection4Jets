@@ -5,6 +5,7 @@ import numpy as np
 import torch_scatter
 import os.path as osp
 from torch_geometric.data import Data
+from torch_geometric.utils import to_dense_batch
 
 multi_gpu = torch.cuda.device_count()>1
 eps = 1e-12
@@ -94,9 +95,11 @@ class LossFunction:
     def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0'):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
+        elif lossname == 'emd_loss_layer':
+            pass
         else:
             loss = getattr(self, lossname)
-            if lossname == 'emd_loss' and not multi_gpu:
+            if lossname == 'emd_loss':
                 # keep emd model in memory
                 # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
                 emd_model = load_emd_model(emd_modname,device)
@@ -106,8 +109,8 @@ class LossFunction:
         self.device = device
 
     def chamfer_loss(self, x, y, batch):
-        x = get_ptetaphi(x, batch)
-        y = get_ptetaphi(y, batch) 
+        x = to_dense_batch(x, batch)[0]
+        y = to_dense_batch(y, batch)[0] 
 
         # https://github.com/zichunhao/mnist_graph_autoencoder/blob/master/utils/loss.py
         dist = pairwise_distance(x, y, self.device)
@@ -115,7 +118,7 @@ class LossFunction:
         min_dist_xy = torch.min(dist, dim=-1)
         min_dist_yx = torch.min(dist, dim=-2)  # Equivalent to permute the last two axis
 
-        loss = torch.sum(min_dist_xy.values + min_dist_yx.values)
+        loss = torch.sum(min_dist_xy.values + min_dist_yx.values) / len(x)
 
         return loss
 
