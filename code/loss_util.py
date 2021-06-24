@@ -27,10 +27,6 @@ def get_ptetaphi(x,batch):
     pt = torch.sqrt(torch.square(px) + torch.square(py) + eps)
     eta = arctanh(pz / (p + eps))
     phi = torch.atan(py / (px + eps))
-    ts = [px,py,pz,p,pt,eta,phi]
-    for e in ts:
-        if True in torch.isnan(e):
-            raise ValueError('nan in get_ptetaphi')
     mat = torch.stack((pt,eta,phi),dim=1)
     return mat
 
@@ -133,11 +129,7 @@ class LossFunction:
 
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
-        try:
-            data = preprocess_emdnn_input(x, y, batch)
-        except ValueError as e:
-            print('Error:', e)
-            raise RuntimeError('emd_loss had error') from e
+        data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
         return emd

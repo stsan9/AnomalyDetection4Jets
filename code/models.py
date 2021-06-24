@@ -71,11 +71,7 @@ class EdgeNetEMD(nn.Module):
 
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
-        try:
-            data = preprocess_emdnn_input(x, y, batch)
-        except ValueError as e:
-            print('Error:', e)
-            raise RuntimeError('emd_loss had error') from e
+        data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
         return emd
