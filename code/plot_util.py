@@ -26,7 +26,7 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, save_path):
         reco_fts (torch.tensor): the reconstructed features
         model_fname (str): name of saved model
     """
-    Path(save_path).mkdir(exist_ok=True)
+    Path(save_path).mkdir(parents=True, exist_ok=True)
     label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$']
     feat = ['px', 'py', 'pz']
 

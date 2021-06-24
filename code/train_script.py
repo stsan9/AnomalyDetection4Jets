@@ -279,6 +279,24 @@ def main(args):
     model.load_state_dict(torch.load(modpath))
     input_fts = []
     reco_fts = []
+    for t in valid_loader:
+        model.eval()
+        if isinstance(t, list):
+            for d in t:
+                input_fts.append(d.x)
+        else:
+            input_fts.append(t.x)
+            t.to(device)
+        reco_out = model(t)
+        if isinstance(reco_out, tuple):
+            reco_out = reco_out[0]
+        reco_fts.append(reco_out.cpu().detach())
+    input_fts = torch.cat(input_fts)
+    reco_fts = torch.cat(reco_fts)
+    plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'valid'))
+
+    input_fts = []
+    reco_fts = []
     for t in test_loader:
         model.eval()
         if isinstance(t, list):
@@ -293,7 +311,7 @@ def main(args):
         reco_fts.append(reco_out.cpu().detach())
     input_fts = torch.cat(input_fts)
     reco_fts = torch.cat(reco_fts)
-    plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train'))
+    plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'test'))
     print('Completed')
 
 if __name__ == '__main__':
