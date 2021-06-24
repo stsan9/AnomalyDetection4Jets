@@ -152,28 +152,7 @@ def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
 
     return sum_loss / (i+1)
 
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mod-name', type=str, help='model name for saving and loading', required=True)
-    parser.add_argument('--input-dir', type=str, help='location of dataset', required=True)
-    parser.add_argument('--output-dir', type=str, help='root folder to output experiment results to', 
-                        default='/anomalyvol/experiments/', required=False)
-    parser.add_argument('--box-num', type=int, help='0=QCD-background; 1=bb1; 2=bb2; 4=rnd', default=0, required=False)
-    parser.add_argument('--lat-dim', type=int, help='latent space size', default=2, required=False)
-    parser.add_argument('--model', 
-                        choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models'], 
-                        help='model selection', required=True)
-    parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
-    parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
-    parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
-    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse','emd_loss_layer'], 
-                        help='loss function', required=True)
-    parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
-                        help='emd models for loss', default='Symmetric1k.best.pth', required=False)
-    parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', 
-                        default=None, required=False)
-    args = parser.parse_args()
+def main(args):
     batch_size = args.batch_size
     model_fname = args.mod_name
 
@@ -235,7 +214,7 @@ if __name__ == '__main__':
             model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
 
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4)
 
     valid_losses = []
     train_losses = []
@@ -316,3 +295,28 @@ if __name__ == '__main__':
     reco_fts = torch.cat(reco_fts)
     plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train'))
     print('Completed')
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mod-name', type=str, help='model name for saving and loading', required=True)
+    parser.add_argument('--input-dir', type=str, help='location of dataset', required=True)
+    parser.add_argument('--output-dir', type=str, help='root folder to output experiment results to', 
+                        default='/anomalyvol/experiments/', required=False)
+    parser.add_argument('--box-num', type=int, help='0=QCD-background; 1=bb1; 2=bb2; 4=rnd', default=0, required=False)
+    parser.add_argument('--lat-dim', type=int, help='latent space size', default=2, required=False)
+    parser.add_argument('--model', 
+                        choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models'], 
+                        help='model selection', required=True)
+    parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
+    parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
+    parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
+    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse','emd_loss_layer'], 
+                        help='loss function', required=True)
+    parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
+                        help='emd models for loss', default='Symmetric1k.best.pth', required=False)
+    parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', 
+                        default=None, required=False)
+    args = parser.parse_args()
+
+    main(args)
