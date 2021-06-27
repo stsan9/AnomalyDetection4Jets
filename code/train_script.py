@@ -174,8 +174,12 @@ def main(args):
     random.Random(0).shuffle(bag)
     bag = bag[:args.num_data]
     # temporary patch to use px, py, pz
-    for d in bag:
-        d.x = d.x[:,:3]
+    if args.swap_input:
+        for d in bag:   # pt eta phi
+            d.x = d.x[:,5:8]
+    else:
+        for d in bag:   # px py pz
+            d.x = d.x[:,:3]
     # 80:10:10 split datasets
     fulllen = len(bag)
     train_len = int(0.8 * fulllen)
@@ -196,7 +200,7 @@ def main(args):
         test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
 
     # specify loss function
-    loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
+    loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device, swap_input=args.swap_input)
 
     # create model
     input_dim = 3
@@ -335,6 +339,7 @@ if __name__ == '__main__':
                         help='emd models for loss', default='Symmetric1k.best.pth', required=False)
     parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', 
                         default=None, required=False)
+    parser.add_argument("--swap-input", action="store_true", default=False, help="use pt eta phi instead of 3 momentum")
     args = parser.parse_args()
 
     main(args)

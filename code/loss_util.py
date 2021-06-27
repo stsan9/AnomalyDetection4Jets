@@ -9,6 +9,7 @@ from torch_geometric.utils import to_dense_batch
 
 multi_gpu = torch.cuda.device_count()>1
 eps = 1e-12
+torch.autograd.set_detect_anomaly(True)
 
 def load_emd_model(modname, device):
     emd_model = getattr(emd_models, modname[:-9])(device=device)
@@ -31,23 +32,20 @@ def get_ptetaphi(x,batch):
     return mat
 
 def preprocess_emdnn_input(x, y, batch):
-    # px py pz -> pt eta phi
-    x = get_ptetaphi(x, batch)
-    y = get_ptetaphi((y+eps), batch)
-
+    import pdb; pdb.set_trace()
     # center by pt centroid while accounting for torch geo batching
     _, counts = torch.unique_consecutive(batch, return_counts=True)
     n = torch_scatter.scatter(x[:,1:3].clone() * x[:,0,None].clone(), batch, dim=0, reduce='sum')
     d = torch_scatter.scatter(x[:,0], batch, dim=0, reduce='sum')
     yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
     yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
-    x[:,1:3] -= yphi_avg
+    x[:,1:3] = x[:,1:3] - yphi_avg
 
     n = torch_scatter.scatter(y[:,1:3].clone() * y[:,0,None].clone(), batch, dim=0, reduce='sum')
     d = torch_scatter.scatter(y[:,0], batch, dim=0, reduce='sum')
     yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
     yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
-    y[:,1:3] -= yphi_avg
+    y[:,1:3] = y[:,1:3] - yphi_avg
     y = y + eps
  
     # normalize pt
@@ -88,7 +86,7 @@ def pairwise_distance(x, y, device=None):
     return dist
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0'):
+    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0', swap_input=False):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         elif lossname == 'emd_loss_layer':
@@ -103,6 +101,7 @@ class LossFunction:
         self.name = lossname
         self.loss_ftn = loss
         self.device = device
+        self.swap_input = swap_input    # indicate we're using pt eta phi
 
     def chamfer_loss(self, x, y, batch):
         x = to_dense_batch(x, batch)[0]
@@ -129,6 +128,10 @@ class LossFunction:
 
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
+        if not self.swap_input:
+            # px py pz -> pt eta phi
+            x = get_ptetaphi(x, batch)
+            y = get_ptetaphi((y+eps), batch)
         data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
