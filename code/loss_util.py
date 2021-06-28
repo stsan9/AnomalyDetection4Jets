@@ -32,7 +32,8 @@ def get_ptetaphi(x,batch):
     return mat
 
 def preprocess_emdnn_input(x, y, batch):
-    import pdb; pdb.set_trace()
+    x = x.clone()
+    y = y.clone()
     # center by pt centroid while accounting for torch geo batching
     _, counts = torch.unique_consecutive(batch, return_counts=True)
     n = torch_scatter.scatter(x[:,1:3].clone() * x[:,0,None].clone(), batch, dim=0, reduce='sum')
