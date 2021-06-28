@@ -89,7 +89,7 @@ class GraphDataset(Dataset):
         return_list = list(map(osp.basename, proc_list))
         return return_list
 
-    def __len__(self):
+    def len(self):
         return len(self.processed_file_names)
 
     def download(self):
