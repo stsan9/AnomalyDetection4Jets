@@ -9,6 +9,7 @@ from torch_geometric.utils import to_dense_batch
 
 multi_gpu = torch.cuda.device_count()>1
 eps = 1e-12
+torch.autograd.set_detect_anomaly(True)
 
 def load_emd_model(modname, device):
     emd_model = getattr(emd_models, modname[:-9])(device=device)
@@ -30,33 +31,33 @@ def get_ptetaphi(x,batch):
     mat = torch.stack((pt,eta,phi),dim=1)
     return mat
 
-def preprocess_emdnn_input(x, y, batch):
-    # px py pz -> pt eta phi
-    x = get_ptetaphi(x, batch)
-    y = get_ptetaphi((y+eps), batch)
-
-    # center by pt centroid while accounting for torch geo batching
-    _, counts = torch.unique_consecutive(batch, return_counts=True)
+def center_by_pt(x, batch, unique_batches):
     n = torch_scatter.scatter(x[:,1:3].clone() * x[:,0,None].clone(), batch, dim=0, reduce='sum')
     d = torch_scatter.scatter(x[:,0], batch, dim=0, reduce='sum')
     yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
-    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
-    x[:,1:3] -= yphi_avg
+    yphi_avg = torch.repeat_interleave(yphi_avg, unique_batches, dim=0)
+    x[:,1:3] = x[:,1:3] - yphi_avg
+    return x
 
-    n = torch_scatter.scatter(y[:,1:3].clone() * y[:,0,None].clone(), batch, dim=0, reduce='sum')
-    d = torch_scatter.scatter(y[:,0], batch, dim=0, reduce='sum')
-    yphi_avg = (n.T / (d + eps)).T  # returns yphi_avg for each batch
-    yphi_avg = torch.repeat_interleave(yphi_avg, counts, dim=0)
-    y[:,1:3] -= yphi_avg
+def normalize_pt(x, E, unique_batches):
+    E_repeat = torch.repeat_interleave(E, unique_batches, dim=0)
+    x[:,0] = x[:,0].clone() / (E_repeat + eps)
+    return x
+
+def preprocess_emdnn_input(x, y, batch):
+    x = x.clone()
+    y = y.clone()
+    # center by pt centroid while accounting for torch geo batching
+    _, unique_batches = torch.unique_consecutive(batch, return_counts=True)
+    x = center_by_pt(x, batch, unique_batches)
+    y = center_by_pt(x, batch, unique_batches)
     y = y + eps
  
     # normalize pt
     Ex = torch_scatter.scatter(src=x[:,0],index=batch, reduce='sum')
     Ey = torch_scatter.scatter(src=y[:,0],index=batch, reduce='sum')
-    Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
-    Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
-    x[:,0] = x[:,0].clone() / (Ex_repeat + eps)
-    y[:,0] = y[:,0].clone() / (Ey_repeat + eps)
+    x = normalize_pt(x, Ex, unique_batches)
+    y = normalize_pt(y, Ey, unique_batches)
 
     device = x.device.type
     x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
@@ -129,6 +130,9 @@ class LossFunction:
 
     def emd_loss(self, x, y, batch):
         self.emd_model.eval()
+        # px py pz -> pt eta phi
+        x = get_ptetaphi(x, batch)
+        y = get_ptetaphi((y+eps), batch)
         data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
