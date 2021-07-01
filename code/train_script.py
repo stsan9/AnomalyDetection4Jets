@@ -7,6 +7,7 @@ import inspect
 import torch.nn as nn
 import os.path as osp
 from pathlib import Path
+from itertools import chain
 from torch.utils.data import random_split
 from torch_geometric.nn import EdgeConv, global_mean_pool, DataParallel
 from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
@@ -165,24 +166,21 @@ def main(args):
     save_dir = osp.join(args.output_dir,model_fname)
     Path(save_dir).mkdir(exist_ok=True)
 
-    # get dataset and split
+    # dataset
     gdata = GraphDataset(root=args.input_dir, bb=args.box_num)
     # merge data from separate files into one contiguous array
-    bag = []
-    for g in gdata:
-        bag += g
-    random.Random(0).shuffle(bag)
-    bag = bag[:args.num_data]
+    dataset = [data for data in chain.from_iterable(gdata)]
+    random.Random(0).shuffle(dataset)
+    dataset = dataset[:args.num_data]
     # temporary patch to use px, py, pz
-    for d in bag:
+    for d in dataset:
         d.x = d.x[:,:3]
-    # 80:10:10 split datasets
-    fulllen = len(bag)
+    fulllen = len(dataset)
     train_len = int(0.8 * fulllen)
     tv_len = int(0.10 * fulllen)
-    train_dataset = bag[:train_len]
-    valid_dataset = bag[train_len:train_len + tv_len]
-    test_dataset  = bag[train_len + tv_len:]
+    train_dataset = dataset[:train_len]
+    valid_dataset = dataset[train_len:train_len + tv_len]
+    test_dataset  = dataset[train_len + tv_len:]
     train_samples = len(train_dataset)
     valid_samples = len(valid_dataset)
     test_samples = len(test_dataset)
@@ -195,7 +193,6 @@ def main(args):
         valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
 
-    # specify loss function
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
     # create model
