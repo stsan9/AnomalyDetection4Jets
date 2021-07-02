@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: anomaly-graph-job-bb0
+  labels:
+    jobgroup: anomaly-graph-job
+spec:
+  template:
+    spec:
+      priorityClassName: nice
+      containers:
+      - name: postprocessing
+        image:  gitlab-registry.nautilus.optiputer.net/jmduarte/anomalydetection4jets:latest
+        command:
+        - "python"
+        args:
+        - "/opt/repo/AnomalyDetection4Jets/code/graph_data.py"
+        - --dataset
+        - "/anomalyvol/data/bb_train_sets/bb0"
+        - --n-proc
+        - "10"
+        - --bb
+        - "0"
+        - --n-events-merge
+        - "10000"
+        volumeMounts:
+        - mountPath: /anomalyvol
+          name: anomalyvol-2
+        - name: git-repo
+          mountPath: /opt/repo
+        resources:
+          limits:
+            memory: 64Gi
+            cpu: "10"
+            #nvidia.com/gpu: "1"
+          requests:
+            memory: 32Gi
+            cpu: "10"
+            #nvidia.com/gpu: "1"    
+      initContainers:
+      - name: init-clone-repo
+        image: alpine/git
+        args:
+          - clone
+          - --single-branch
+          - https://github.com/stsan9/AnomalyDetection4Jets
+          - -b
+          - master
+          - /opt/repo/AnomalyDetection4Jets
+        volumeMounts:
+          - name: git-repo
+            mountPath: /opt/repo
+      volumes:
+      - name: git-repo
+        emptyDir: {}
+      - name: anomalyvol-2
+        persistentVolumeClaim:
+          claimName: anomalyvol-2
+      restartPolicy: Never
+  backoffLimit: 5

@@ -1,15 +1,17 @@
 """
     Model definitions.
 """
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import EdgeConv, global_mean_pool, DynamicEdgeConv
-import torch
 import torch_geometric.transforms as T
-from torch_geometric.nn import EdgeConv, global_mean_pool
+from loss_util import get_ptetaphi, load_emd_model, eps, preprocess_emdnn_input
+from torch_scatter import scatter_mean, scatter
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
-from torch_scatter import scatter_mean
+from torch_geometric.data import Data
 from torch_geometric.nn import MetaLayer
+from torch_geometric.nn import EdgeConv, global_mean_pool, DynamicEdgeConv
+from torch_geometric.nn import EdgeConv, global_mean_pool
 
 # GNN AE using EdgeConv (mean aggregation graph operation). Basic GAE model.
 class EdgeNet(nn.Module):
@@ -36,10 +38,50 @@ class EdgeNet(nn.Module):
         self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x,data.edge_index)
-        data.x = self.decoder(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.edge_index)
+        x = self.decoder(x,data.edge_index)
+        return x
+
+class EdgeNetEMD(nn.Module):
+    def __init__(self, input_dim=4, big_dim=32, hidden_dim=2, aggr='mean', emd_modname='EmdNNRel.best.pth'):
+        super(EdgeNetEMD, self).__init__()
+        encoder_nn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, hidden_dim),
+                               nn.ReLU(),
+        )
+        
+        decoder_nn = nn.Sequential(nn.Linear(2*(hidden_dim), big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, big_dim),
+                               nn.ReLU(),
+                               nn.Linear(big_dim, input_dim)
+        )
+        
+        self.batchnorm = nn.BatchNorm1d(input_dim)
+
+        self.encoder = EdgeConv(nn=encoder_nn,aggr=aggr)
+        self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
+
+        emd_model = load_emd_model(emd_modname, device='cuda' if torch.cuda.is_available() else 'cpu')
+        self.emd_model = emd_model.requires_grad_(False)
+
+    def emd_loss(self, x, y, batch):
+        self.emd_model.eval()
+        data = preprocess_emdnn_input(x, y, batch)
+        out = self.emd_model(data)
+        emd = out[0]
+        return emd
+
+    def forward(self, data):
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.edge_index)
+        x = self.decoder(x,data.edge_index)
+        loss = self.emd_loss(x, data.x, data.batch)
+        return x, loss
     
 # GVAE based on EdgeNet model above.
 class EdgeNetVAE(nn.Module):
@@ -72,13 +114,13 @@ class EdgeNetVAE(nn.Module):
         return mu + eps*std
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x,data.edge_index)
-        mu = self.mu_layer(data.x)
-        log_var = self.var_layer(data.x)
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.edge_index)
+        mu = self.mu_layer(x)
+        log_var = self.var_layer(x)
         z = self.reparameterize(mu, log_var)
-        data.x = self.decoder(z,data.edge_index)
-        return data.x, mu, log_var
+        x = self.decoder(z,data.edge_index)
+        return x, mu, log_var
 
 # no EdgeConvs
 class AE(nn.Module):
@@ -102,10 +144,10 @@ class AE(nn.Module):
         self.batchnorm = nn.BatchNorm1d(input_dim)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x)
-        data.x = self.decoder(data.x)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
 
 # Double EdgeConv for encoder + decoder
 class EdgeNetDeeper(nn.Module):
@@ -148,12 +190,12 @@ class EdgeNetDeeper(nn.Module):
         self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        x = self.decoder_2(x,data.edge_index)
+        return x
 
 # 2 EdgeConv Wider
 class EdgeNetDeeper2(nn.Module):
@@ -196,12 +238,12 @@ class EdgeNetDeeper2(nn.Module):
         self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        x = self.decoder_2(x,data.edge_index)
+        return x
 
 # 3 EdgeConv Wider symmetrical encoder/decoder
 class EdgeNetDeeper3(nn.Module):
@@ -260,14 +302,14 @@ class EdgeNetDeeper3(nn.Module):
         self.decoder_3 = EdgeConv(nn=decoder_nn_3,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.encoder_3(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        data.x = self.decoder_3(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.encoder_3(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        x = self.decoder_2(x,data.edge_index)
+        x = self.decoder_3(x,data.edge_index)
+        return x
     
 # 2 EdgeConv Encoder, 1 EdgeConv decoder and thinner
 class EdgeNetDeeper4(nn.Module):
@@ -302,11 +344,11 @@ class EdgeNetDeeper4(nn.Module):
         self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        return x
 
 # Baseline Edgenet but deeper encoder/decoder
 class EdgeNetDeeper5(nn.Module):
@@ -337,10 +379,10 @@ class EdgeNetDeeper5(nn.Module):
         self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x,data.edge_index)
-        data.x = self.decoder(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.edge_index)
+        x = self.decoder(x,data.edge_index)
+        return x
 
 # Deeper vers + more Batchnorm
 class EdgeNetDeeperBN(nn.Module):
@@ -394,12 +436,12 @@ class EdgeNetDeeperBN(nn.Module):
         self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        x = self.decoder_2(x,data.edge_index)
+        return x
 
 # 2 EdgeConv Wider
 class EdgeNetDeeper2BN(nn.Module):
@@ -452,12 +494,12 @@ class EdgeNetDeeper2BN(nn.Module):
         self.decoder_2 = EdgeConv(nn=decoder_nn_2,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        x = self.decoder_2(x,data.edge_index)
+        return x
 
 # 3 EdgeConv Wider symmetrical encoder/decoder
 class EdgeNetDeeper3BN(nn.Module):
@@ -533,14 +575,14 @@ class EdgeNetDeeper3BN(nn.Module):
         self.decoder_3 = EdgeConv(nn=decoder_nn_3,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.encoder_3(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        data.x = self.decoder_2(data.x,data.edge_index)
-        data.x = self.decoder_3(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.encoder_3(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        x = self.decoder_2(x,data.edge_index)
+        x = self.decoder_3(x,data.edge_index)
+        return x
     
 # 2 EdgeConv Encoder, 1 EdgeConv decoder and thinner
 class EdgeNetDeeper4BN(nn.Module):
@@ -583,11 +625,11 @@ class EdgeNetDeeper4BN(nn.Module):
         self.decoder_1 = EdgeConv(nn=decoder_nn_1,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder_1(data.x,data.edge_index)
-        data.x = self.encoder_2(data.x,data.edge_index)
-        data.x = self.decoder_1(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder_1(x,data.edge_index)
+        x = self.encoder_2(x,data.edge_index)
+        x = self.decoder_1(x,data.edge_index)
+        return x
 
 # Baseline Edgenet but deeper encoder/decoder
 class EdgeNetDeeper5BN(nn.Module):
@@ -625,10 +667,10 @@ class EdgeNetDeeper5BN(nn.Module):
         self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x,data.edge_index)
-        data.x = self.decoder(data.x,data.edge_index)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.edge_index)
+        x = self.decoder(x,data.edge_index)
+        return x
 
 # GNN AE using EdgeConv (mean aggregation graph operation) and node embedding.
 class EdgeNetEmbed(nn.Module):
@@ -669,12 +711,12 @@ class EdgeNetEmbed(nn.Module):
         self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
 
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.embed_nn(data.x)
-        data.x = self.encoder(data.x,data.edge_index)
-        data.x = self.decoder(data.x,data.edge_index)
-        data.x = self.deembed_nn(data.x)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.embed_nn(x)
+        x = self.encoder(x,data.edge_index)
+        x = self.decoder(x,data.edge_index)
+        x = self.deembed_nn(x)
+        return x
 
 # Using Dynamic Edge Convolution
 class EdgeNetDynamic(torch.nn.Module):
@@ -701,10 +743,10 @@ class EdgeNetDynamic(torch.nn.Module):
         self.decoder = DynamicEdgeConv(nn=decoder_nn,aggr=aggr,k=3)
     
     def forward(self, data):
-        data.x = self.batchnorm(data.x)
-        data.x = self.encoder(data.x,data.batch)
-        data.x = self.decoder(data.x,data.batch)
-        return data.x
+        x = self.batchnorm(data.x)
+        x = self.encoder(x,data.batch)
+        x = self.decoder(x,data.batch)
+        return x
 
 # All GNN MetaLayer components (GAE with global and edge features)
 class EdgeEncoder(torch.nn.Module):
@@ -787,21 +829,3 @@ class MetaLayerGAE(torch.nn.Module):
         x, edge_attr, u = self.encoder(data.x, data.edge_index, None, None, data.batch)
         x, edge_attr, u = self.decoder(x, data.edge_index, None, u, data.batch)
         return x
-
-# models
-model_list = ['EdgeNet',
-              'EdgeNetDeeper',
-              'EdgeNetDeeper2',
-              'EdgeNetDeeper3',
-              'EdgeNetDeeper4',
-              'EdgeNetDeeper5',
-              'AE',
-              'EdgeNetVAE',
-              'EdgeNetEmbed',
-              'MetaLayerGAE',
-              'EdgeNetDeeperBN',
-              'EdgeNetDeeper2BN',
-              'EdgeNetDeeper3BN',
-              'EdgeNetDeeper4BN',
-              'EdgeNetDeeper5BN',
-              'EdgeNetDynamic']

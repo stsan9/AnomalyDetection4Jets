@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: anom-det-pod
+  name: anom-pod
 spec:
   containers:
   - name: gpu-container
@@ -10,23 +10,25 @@ spec:
     resources:
       limits:
         nvidia.com/gpu: 1
+        # nvidia.com/gpu: 2
         memory: 8Gi	
-        cpu: 2
+        cpu: 1
         ephemeral-storage: 100Gi
     volumeMounts:
-    - mountPath: /anomalyvol
-      name: anomalyvol
+    - mountPath: /anomalyvol/
+      name: anomalyvol-2
   restartPolicy: Never
-  volumes:
-    - name: anomalyvol
-      persistentVolumeClaim:
-        claimName: anomalyvol
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
-        - matchExpressions:
-          - key: topology.kubernetes.io/zone
-            operator: In
-            values:
-            - us-west
+          - matchExpressions:
+            - key: gpu-type
+              operator: In
+              values:
+              - "1080"
+              - 1080Ti
+  volumes:
+    - name: anomalyvol-2
+      persistentVolumeClaim:
+        claimName: anomalyvol-2
