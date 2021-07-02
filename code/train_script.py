@@ -30,8 +30,14 @@ def forward_and_loss(model, data, loss_ftn_obj):
 
     if loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
         batch_output = model(data)
-        data_batch = Batch.from_data_list(data).to(device)
-        batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
+        if multi_gpu:
+            data_batch = Batch.from_data_list(data).to(device)
+            y = data_batch.x
+            batch = data_batch.batch
+        else:
+            y = data.x
+            batch = data.batch
+        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, batch)
         batch_loss = batch_loss.mean()
 
     elif loss_ftn_obj.name == 'emd_loss_layer':
