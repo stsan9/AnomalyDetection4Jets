@@ -16,7 +16,7 @@ import models
 import emd_models
 from loss_util import LossFunction
 from graph_data import GraphDataset
-from plot_util import loss_curves, plot_reco_difference
+from plot_util import loss_curves, plot_reco_difference, gen_in_out
 
 torch.manual_seed(0)
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
