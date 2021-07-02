@@ -52,7 +52,7 @@ def gen_in_out(model, loader, device):
     input_fts = []
     reco_fts = []
 
-    for t in valid_loader:
+    for t in loader:
         model.eval()
         if isinstance(t, list):
             for d in t:
