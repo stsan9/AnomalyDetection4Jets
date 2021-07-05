@@ -62,7 +62,7 @@ class DeeperDynamicEdgeNet(nn.Module):
         return self.outnn(data.u)
 
 class EmdNN(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device='cuda:0'):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
         super(EmdNN, self).__init__()
         self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
 
@@ -78,7 +78,7 @@ class EmdNN(nn.Module):
         return loss, emd_1, emd_2
 
 class EmdNNSpl(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device='cuda:0'):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
         super(EmdNNSpl, self).__init__()
         self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
 
@@ -95,7 +95,7 @@ class EmdNNSpl(nn.Module):
         return loss, emd_1, emd_2
 
 class EmdNNRel(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device='cuda:0'):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
         super(EmdNNRel, self).__init__()
         self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
 

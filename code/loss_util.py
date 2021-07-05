@@ -5,6 +5,7 @@ import numpy as np
 import torch_scatter
 import os.path as osp
 from torch_geometric.data import Data
+from emd_loss import emd_loss as deepemd
 from torch_geometric.utils import to_dense_batch
 
 multi_gpu = torch.cuda.device_count()>1
@@ -14,7 +15,7 @@ torch.autograd.set_detect_anomaly(True)
 def load_emd_model(modname, device):
     emd_model = getattr(emd_models, modname[:-9])(device=device)
     modpath = osp.join('/anomalyvol/emd_models/', modname)
-    emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
+    emd_model.load_state_dict(torch.load(modpath, map_location=device))
     return emd_model
 
 def arctanh(x):
@@ -89,18 +90,15 @@ def pairwise_distance(x, y, device=None):
     return dist
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0'):
+    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device=torch.device('cuda:0')):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
-        elif lossname == 'emd_loss_layer':
-            pass
         else:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
-                # keep emd model in memory
                 # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
-                emd_model = load_emd_model(emd_modname,device)
-                self.emd_model = emd_model.requires_grad_(False)
+                self.emd_model = load_emd_model(emd_modname,device)
+                # self.emd_model = emd_model.requires_grad_(False)
         self.name = lossname
         self.loss_ftn = loss
         self.device = device
@@ -136,4 +134,32 @@ class LossFunction:
         data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
+        return emd.mean()
+
+    def deepemd_loss(self, x, y, batch, l2_strength=1e-4):
+        x = get_ptetaphi(x, batch)
+        y = get_ptetaphi(y, batch)
+        # normalize pt
+        Ex = torch_scatter.scatter(src=x[:,0],index=batch)
+        Ey = torch_scatter.scatter(src=y[:,0],index=batch)
+        _, counts = torch.unique_consecutive(batch, return_counts=True)
+        Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
+        Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
+        x[:,0] = x[:,0].clone() / Ex_repeat
+        y[:,0] = y[:,0].clone() / Ey_repeat
+        # eta phi pt
+        inds = torch.LongTensor([1,2,0]).to(self.device)
+        x = torch.index_select(x, 1, inds)
+        y = torch.index_select(y, 1, inds)
+        # format shape as [nbatch, nparticles(padded), features]
+        x = to_dense_batch(x,batch)[0]
+        y = to_dense_batch(y,batch)[0]
+        # get loss using raghav's implementation of DeepEmd
+        emd = deepemd(x, y, device=self.device, l2_strength=l2_strength)
         return emd
+
+    def mse(self):
+        pass
+
+    def emd_in_forward(self):
+        pass

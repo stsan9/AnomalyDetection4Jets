@@ -66,7 +66,7 @@ class EdgeNetEMD(nn.Module):
         self.encoder = EdgeConv(nn=encoder_nn,aggr=aggr)
         self.decoder = EdgeConv(nn=decoder_nn,aggr=aggr)
 
-        emd_model = load_emd_model(emd_modname, device='cuda' if torch.cuda.is_available() else 'cpu')
+        emd_model = load_emd_model(emd_modname, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
         self.emd_model = emd_model.requires_grad_(False)
 
     def emd_loss(self, x, y, batch):

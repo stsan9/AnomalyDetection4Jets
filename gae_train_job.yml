@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: postprocessing
-        image: gitlab-registry.nautilus.optiputer.net/jmduarte/anomalydetection4jets:latest
+        image: gitlab-registry.nautilus.optiputer.net/stsan9/anomalydetection4jets:latest
         command:
         - "python"
         args:

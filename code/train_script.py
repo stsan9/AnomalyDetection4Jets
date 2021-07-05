@@ -14,13 +14,55 @@ from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 
 import models
 import emd_models
+from util import get_model
 from loss_util import LossFunction
 from graph_data import GraphDataset
-from plot_util import loss_curves, plot_reco_difference
+from plot_util import loss_curves, plot_reco_difference, gen_in_out
 
 torch.manual_seed(0)
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 multi_gpu = torch.cuda.device_count()>1
+
+# helper to perform correct loss
+def forward_and_loss(model, data, loss_ftn_obj):
+    
+    if not multi_gpu:
+        data = data.to(device)
+
+    if 'emd_loss' in loss_ftn_obj.name or loss_ftn_obj.name == 'chamfer_loss':
+        batch_output = model(data)
+        if multi_gpu:
+            data_batch = Batch.from_data_list(data).to(device)
+            y = data_batch.x
+            batch = data_batch.batch
+        else:
+            y = data.x
+            batch = data.batch
+        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, batch)
+
+    elif loss_ftn_obj.name == 'emd_in_forward':
+        _, batch_loss = model(data)
+        batch_loss = batch_loss.mean()
+
+    elif loss_ftn_obj.name == 'vae_loss':
+        batch_output, mu, log_var = model(data)
+        if multi_gpu:
+            y = torch.cat([d.x for d in data]).to(device)
+        else:
+            y = data.x
+            y = y.contiguous()
+        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
+
+    else:
+        batch_output = model(data)
+        y = torch.cat([d.x for d in data]).to(device)
+        if multi_gpu:
+            y = torch.cat([d.x for d in data]).to(device)
+        else:
+            y = data.x
+            y = y.contiguous()
+        batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
+    return batch_loss
 
 @torch.no_grad()
 def test(model, loader, total, batch_size, loss_ftn_obj):
@@ -29,26 +71,12 @@ def test(model, loader, total, batch_size, loss_ftn_obj):
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     for i,data in t:
-        if data.x.shape[0] <= 1:    # skip strange jets
-            continue
-        data = data.to(device)
 
-        y = data.x
-        y = y.contiguous()
+        batch_loss = forward_and_loss(model, data, loss_ftn_obj)
 
-        # forward and loss
-        if loss_ftn_obj.name == 'vae_loss':
-            batch_output, mu, log_var = model(data)
-            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
-        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
-            batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            batch_loss_item = batch_loss.mean().item()
-        else:
-            batch_output = model(data)
-            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y).item()
-        sum_loss += batch_loss_item
-        t.set_description('eval loss = %.5f' % (batch_loss_item))
+        loss_scalar = batch_loss.item()
+        sum_loss += loss_scalar
+        t.set_description('eval loss = %.5f' % (loss_scalar))
         t.refresh() # to show immediately the update
 
     return sum_loss/(i+1)
@@ -59,97 +87,14 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
     sum_loss = 0.
     t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
     for i,data in t:
-        if data.x.shape[0] <= 1:    # skip strange jets
-            continue
-        data = data.to(device)
-
-        y = data.x
-        y = y.contiguous()
         optimizer.zero_grad()
 
-        # forward pass and loss calc
-        if loss_ftn_obj.name == 'vae_loss':
-            batch_output, mu, log_var = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
-        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
-            batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, data.batch)
-            batch_loss = batch_loss.mean()
-        else:
-            batch_output = model(data)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
-
+        batch_loss = forward_and_loss(model, data, loss_ftn_obj)
         batch_loss.backward()
-        batch_loss_item = batch_loss.item()
-        t.set_description('train loss = %.5f' % batch_loss_item)
+        loss_scalar = batch_loss.item()
+        t.set_description('train loss = %.5f' % loss_scalar)
         t.refresh() # to show immediately the update
-        sum_loss += batch_loss_item
-        optimizer.step()
-
-    return sum_loss / (i+1)
-
-@torch.no_grad()
-def test_parallel(model, loader, total, batch_size, loss_ftn_obj):
-    model.eval()
-
-    sum_loss = 0.
-    t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
-    for i,data in t:
-
-        # forward and loss
-        if loss_ftn_obj.name == 'vae_loss':
-            batch_output, mu, log_var = model(data)
-            y = torch.cat([d.x for d in data]).to(device)
-            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var).item()
-        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
-            batch_output = model(data)
-            data_batch = Batch.from_data_list(data).to(device)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-            batch_loss_item = batch_loss.mean().item()
-        elif loss_ftn_obj.name == 'emd_loss_layer':
-            _, batch_loss = model(data)
-            batch_loss_item = batch_loss.mean().item()
-        else:
-            batch_output = model(data)
-            y = torch.cat([d.x for d in data]).to(device)
-            batch_loss_item = loss_ftn_obj.loss_ftn(batch_output, y).item()
-
-        sum_loss += batch_loss_item
-        t.set_description('eval loss = %.5f' % (batch_loss_item))
-        t.refresh() # to show immediately the update
-
-    return sum_loss/(i+1)
-
-def train_parallel(model, optimizer, loader, total, batch_size, loss_ftn_obj):
-    model.train()
-
-    sum_loss = 0.
-    t = tqdm.tqdm(enumerate(loader),total=total/batch_size)
-    for i,data in t:
-        optimizer.zero_grad()
-
-        if loss_ftn_obj.name == 'vae_loss':
-            batch_output, mu, log_var = model(data)
-            y = torch.cat([d.x for d in data]).to(device)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
-        elif loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
-            batch_output = model(data)
-            data_batch = Batch.from_data_list(data).to(device)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, data_batch.x, data_batch.batch)
-            batch_loss = batch_loss.mean()
-        elif loss_ftn_obj.name == 'emd_loss_layer':
-            _, batch_loss = model(data)
-            batch_loss = batch_loss.mean()
-        else:
-            batch_output = model(data)
-            y = torch.cat([d.x for d in data]).to(device)
-            batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
-
-        batch_loss.backward()
-        batch_loss_item = batch_loss.item()
-        t.set_description('train loss = %.5f' % batch_loss_item)
-        t.refresh() # to show immediately the update
-        sum_loss += batch_loss_item
+        sum_loss += loss_scalar
         optimizer.step()
 
     return sum_loss / (i+1)
@@ -160,6 +105,8 @@ def main(args):
 
     if multi_gpu and batch_size < torch.cuda.device_count():
         exit('Batch size too small')
+    if args.loss == 'deepemd_loss' and batch_size > 1:
+        exit('deepemd_loss can only be used with batch_size of 1 for now')
 
     # make a folder for the graphs of this model
     Path(args.output_dir).mkdir(exist_ok=True)
@@ -172,9 +119,16 @@ def main(args):
     dataset = [data for data in chain.from_iterable(gdata)]
     random.Random(0).shuffle(dataset)
     dataset = dataset[:args.num_data]
-    # temporary patch to use px, py, pz
+
+    # temporary patch
+    tmp = []
     for d in dataset:
-        d.x = d.x[:,:3]
+        d.x = d.x[:,:3] # px py pz
+        if args.loss == 'deepemd_loss' and len(d.x) <= 30:
+            tmp.append(d)
+    if args.loss == 'deepemd_loss':
+        dataset = tmp
+
     fulllen = len(dataset)
     train_len = int(0.8 * fulllen)
     tv_len = int(0.10 * fulllen)
@@ -199,51 +153,37 @@ def main(args):
     input_dim = 3
     big_dim = 32
     hidden_dim = args.lat_dim
-    lr = args.lr
-    patience = args.patience
+    model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
 
-    if args.model == 'MetaLayerGAE':
-        model = models.GNNAutoEncoder()
-    else:
-        if args.model[-3:] == 'EMD':
-            model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
-        else:
-            model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4)
 
+    # load in prior model state
     valid_losses = []
     train_losses = []
     start_epoch = 0
-    n_epochs = 200
-
-    # load in model
     modpath = osp.join(save_dir,model_fname+'.best.pth')
     try:
         model.load_state_dict(torch.load(modpath))
         train_losses, valid_losses, start_epoch = torch.load(osp.join(save_dir,'losses.pt'))
-        print('Loaded model')
         best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
+        print('Loaded model')
         print(f'Saved model valid loss: {best_valid_loss}')
     except:
         print('Creating new model')
         best_valid_loss = 9999999
     if multi_gpu:
         model = DataParallel(model)
-    model.to(torch.device(device))
+    model.to(device)
 
     # Training loop
+    n_epochs = 200
     stale_epochs = 0
     loss = best_valid_loss
     for epoch in range(start_epoch, n_epochs):
 
-        if multi_gpu:
-            loss = train_parallel(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
-            valid_loss = test_parallel(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
-        else:
-            loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
-            valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
+        loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
+        valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
 
         scheduler.step(valid_loss)
         train_losses.append(loss)
@@ -263,8 +203,8 @@ def main(args):
         else:
             stale_epochs += 1
             print(f'Stale epoch: {stale_epochs}\nBest: {best_valid_loss}\nCurr: {valid_loss}')
-        if stale_epochs >= patience:
-            print('Early stopping after %i stale epochs'%patience)
+        if stale_epochs >= args.patience:
+            print('Early stopping after %i stale epochs'%args.patience)
             break
 
     # model training done
@@ -272,42 +212,19 @@ def main(args):
     early_stop_epoch = epoch - stale_epochs
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
 
-    # compare input and reconstructions
+    # load best model
+    del model
+    torch.cuda.empty_cache()
+    model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
     model.load_state_dict(torch.load(modpath))
-    input_fts = []
-    reco_fts = []
-    for t in valid_loader:
-        model.eval()
-        if isinstance(t, list):
-            for d in t:
-                input_fts.append(d.x)
-        else:
-            input_fts.append(t.x)
-            t.to(device)
-        reco_out = model(t)
-        if isinstance(reco_out, tuple):
-            reco_out = reco_out[0]
-        reco_fts.append(reco_out.cpu().detach())
-    input_fts = torch.cat(input_fts)
-    reco_fts = torch.cat(reco_fts)
+    if multi_gpu:
+        model = DataParallel(model)
+    model.to(device)
+
+    input_fts, reco_fts = gen_in_out(model, valid_loader, device)
     plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'valid'))
 
-    input_fts = []
-    reco_fts = []
-    for t in test_loader:
-        model.eval()
-        if isinstance(t, list):
-            for d in t:
-                input_fts.append(d.x)
-        else:
-            input_fts.append(t.x)
-            t.to(device)
-        reco_out = model(t)
-        if isinstance(reco_out, tuple):
-            reco_out = reco_out[0]
-        reco_fts.append(reco_out.cpu().detach())
-    input_fts = torch.cat(input_fts)
-    reco_fts = torch.cat(reco_fts)
+    input_fts, reco_fts = gen_in_out(model, test_loader, device)
     plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'test'))
     print('Completed')
 
@@ -326,7 +243,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
     parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
-    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse','emd_loss_layer'], 
+    parser.add_argument('--loss', choices=[m for m in dir(LossFunction) if not m.startswith('__')], 
                         help='loss function', required=True)
     parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
                         help='emd models for loss', default='Symmetric1k.best.pth', required=False)

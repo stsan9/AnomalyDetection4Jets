@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 import mplhep as hep
 import os.path as osp
@@ -46,6 +47,28 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, save_path):
         plt.tight_layout()
         plt.savefig(osp.join(save_path, feat[i] + '.pdf'))
         plt.close()
+
+def gen_in_out(model, loader, device):
+    input_fts = []
+    reco_fts = []
+
+    for t in loader:
+        model.eval()
+        if isinstance(t, list):
+            for d in t:
+                input_fts.append(d.x)
+        else:
+            input_fts.append(t.x)
+            t.to(device)
+
+        reco_out = model(t)
+        if isinstance(reco_out, tuple):
+            reco_out = reco_out[0]
+        reco_fts.append(reco_out.cpu().detach())
+
+    input_fts = torch.cat(input_fts)
+    reco_fts = torch.cat(reco_fts)
+    return input_fts, reco_fts
 
 def loss_curves(epochs, early_stop_epoch, train_loss, valid_loss, save_path):
     '''
