@@ -152,20 +152,15 @@ def main(args):
     input_dim = 3
     big_dim = 32
     hidden_dim = args.lat_dim
-    lr = args.lr
-    patience = args.patience
-
     model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4)
 
+    # load in prior model state
     valid_losses = []
     train_losses = []
     start_epoch = 0
-    n_epochs = 200
-
-    # load in model
     modpath = osp.join(save_dir,model_fname+'.best.pth')
     try:
         model.load_state_dict(torch.load(modpath))
@@ -181,6 +176,7 @@ def main(args):
     model.to(device)
 
     # Training loop
+    n_epochs = 200
     stale_epochs = 0
     loss = best_valid_loss
     for epoch in range(start_epoch, n_epochs):
@@ -206,8 +202,8 @@ def main(args):
         else:
             stale_epochs += 1
             print(f'Stale epoch: {stale_epochs}\nBest: {best_valid_loss}\nCurr: {valid_loss}')
-        if stale_epochs >= patience:
-            print('Early stopping after %i stale epochs'%patience)
+        if stale_epochs >= args.patience:
+            print('Early stopping after %i stale epochs'%args.patience)
             break
 
     # model training done
@@ -215,7 +211,7 @@ def main(args):
     early_stop_epoch = epoch - stale_epochs
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
 
-    # compare input and reconstructions
+    # load best model
     del model
     torch.cuda.empty_cache()
     model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
@@ -223,6 +219,7 @@ def main(args):
     if multi_gpu:
         model = DataParallel(model)
     model.to(device)
+
     input_fts, reco_fts = gen_in_out(model, valid_loader, device)
     plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'valid'))
 
