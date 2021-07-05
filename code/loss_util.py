@@ -97,8 +97,8 @@ class LossFunction:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
                 # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
-                emd_model = load_emd_model(emd_modname,device)
-                self.emd_model = emd_model.requires_grad_(False)
+                self.emd_model = load_emd_model(emd_modname,device)
+                # self.emd_model = emd_model.requires_grad_(False)
         self.name = lossname
         self.loss_ftn = loss
         self.device = device
@@ -134,7 +134,7 @@ class LossFunction:
         data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
-        return emd
+        return emd.mean()
 
     def deepemd_loss(self, x, y, batch, l2_strength=1e-4):
         x = get_ptetaphi(x, batch)

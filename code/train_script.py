@@ -39,7 +39,6 @@ def forward_and_loss(model, data, loss_ftn_obj):
             y = data.x
             batch = data.batch
         batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, batch)
-        batch_loss = batch_loss.mean()
 
     elif loss_ftn_obj.name == 'emd_in_forward':
         _, batch_loss = model(data)
