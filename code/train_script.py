@@ -105,6 +105,8 @@ def main(args):
 
     if multi_gpu and batch_size < torch.cuda.device_count():
         exit('Batch size too small')
+    if args.loss == 'deepemd_loss' and batch_size > 1:
+        exit('deepemd_loss can only be used with batch_size of 1 for now')
 
     # make a folder for the graphs of this model
     Path(args.output_dir).mkdir(exist_ok=True)
