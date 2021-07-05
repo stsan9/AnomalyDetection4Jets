@@ -148,7 +148,7 @@ def main(args):
     lr = args.lr
     patience = args.patience
 
-    model = get_model(args.model)
+    model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
 
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4)
@@ -209,9 +209,11 @@ def main(args):
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
 
     # compare input and reconstructions
-    model = get_model(args.model)
-    model.to(device)
+    model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
     model.load_state_dict(torch.load(modpath))
+    if multi_gpu:
+        model = DataParallel(model)
+    model.to(device)
     input_fts, reco_fts = gen_in_out(model, valid_loader, device)
     plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'valid'))
 
