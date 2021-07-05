@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: gpu-container
-    image: gitlab-registry.nautilus.optiputer.net/jmduarte/anomalydetection4jets:latest
+    image: gitlab-registry.nautilus.optiputer.net/stsan9/anomalydetection4jets:latest
     command: ["sleep", "infinity"]
     resources:
       limits:
