@@ -14,12 +14,13 @@ from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 
 import models
 import emd_models
+from util import get_model
 from loss_util import LossFunction
 from graph_data import GraphDataset
 from plot_util import loss_curves, plot_reco_difference, gen_in_out
 
 torch.manual_seed(0)
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 multi_gpu = torch.cuda.device_count()>1
 
 # helper to perform correct loss
@@ -147,13 +148,7 @@ def main(args):
     lr = args.lr
     patience = args.patience
 
-    if args.model == 'MetaLayerGAE':
-        model = models.GNNAutoEncoder()
-    else:
-        if args.model[-3:] == 'EMD':
-            model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
-        else:
-            model = getattr(models, args.model)(input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim)
+    model = get_model(args.model)
 
     optimizer = torch.optim.Adam(model.parameters(), lr = lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4)
@@ -176,7 +171,7 @@ def main(args):
         best_valid_loss = 9999999
     if multi_gpu:
         model = DataParallel(model)
-    model.to(torch.device(device))
+    model.to(device)
 
     # Training loop
     stale_epochs = 0
@@ -214,6 +209,8 @@ def main(args):
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
 
     # compare input and reconstructions
+    model = get_model(args.model)
+    model.to(device)
     model.load_state_dict(torch.load(modpath))
     input_fts, reco_fts = gen_in_out(model, valid_loader, device)
     plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'valid'))

@@ -15,7 +15,7 @@ torch.autograd.set_detect_anomaly(True)
 def load_emd_model(modname, device):
     emd_model = getattr(emd_models, modname[:-9])(device=device)
     modpath = osp.join('/anomalyvol/emd_models/', modname)
-    emd_model.load_state_dict(torch.load(modpath, map_location=torch.device(device)))
+    emd_model.load_state_dict(torch.load(modpath, map_location=device))
     return emd_model
 
 def arctanh(x):
@@ -90,7 +90,7 @@ def pairwise_distance(x, y, device=None):
     return dist
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device='cuda:0'):
+    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device=torch.device('cuda:0')):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         elif lossname == 'emd_loss_layer':
@@ -157,5 +157,5 @@ class LossFunction:
         x = to_dense_batch(x,batch)[0]
         y = to_dense_batch(y,batch)[0]
         # get loss using raghav's implementation of DeepEmd
-        emd = deepemd(x, y, device=torch.device(self.device), l2_strength=l2_strength)
+        emd = deepemd(x, y, device=self.device, l2_strength=l2_strength)
         return emd
