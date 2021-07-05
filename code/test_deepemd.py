@@ -14,7 +14,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-size", type=int, help="batch size", default=1, required=False)
-    parser.add_argument("--l2-strength", type=float, help="l2 str", default=1e-8, required=False)
+    parser.add_argument("--l2-strength", type=float, help="l2 str", default=1e-4, required=False)
     args = parser.parse_args()
     batch_size = args.batch_size
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     device = 'cuda:0'
     loader = DataLoader(data[:5000], batch_size=batch_size, pin_memory=True, shuffle=False)
 
-    deepemd = LossFunction('deep_emd_loss', device=device)
+    deepemd = LossFunction('deepemd_loss', device=device)
 
     # calculate emds
     losses = []

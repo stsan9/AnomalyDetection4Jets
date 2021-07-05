@@ -29,7 +29,7 @@ def forward_and_loss(model, data, loss_ftn_obj):
     if not multi_gpu:
         data = data.to(device)
 
-    if loss_ftn_obj.name == 'emd_loss' or loss_ftn_obj.name == 'chamfer_loss':
+    if 'emd_loss' in loss_ftn_obj.name or loss_ftn_obj.name == 'chamfer_loss':
         batch_output = model(data)
         if multi_gpu:
             data_batch = Batch.from_data_list(data).to(device)
@@ -41,7 +41,7 @@ def forward_and_loss(model, data, loss_ftn_obj):
         batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, batch)
         batch_loss = batch_loss.mean()
 
-    elif loss_ftn_obj.name == 'emd_loss_layer':
+    elif loss_ftn_obj.name == 'emd_in_forward':
         _, batch_loss = model(data)
         batch_loss = batch_loss.mean()
 
@@ -118,9 +118,16 @@ def main(args):
     dataset = [data for data in chain.from_iterable(gdata)]
     random.Random(0).shuffle(dataset)
     dataset = dataset[:args.num_data]
-    # temporary patch to use px, py, pz
+
+    # temporary patch
+    tmp = []
     for d in dataset:
-        d.x = d.x[:,:3]
+        d.x = d.x[:,:3] # px py pz
+        if args.loss == 'deepemd_loss' and len(d.x) <= 30:
+            tmp.append(d)
+    if args.loss == 'deepemd_loss':
+        dataset = tmp
+
     fulllen = len(dataset)
     train_len = int(0.8 * fulllen)
     tv_len = int(0.10 * fulllen)
@@ -209,6 +216,8 @@ def main(args):
     loss_curves(train_epochs, early_stop_epoch, train_losses, valid_losses, save_dir)
 
     # compare input and reconstructions
+    del model
+    torch.cuda.empty_cache()
     model = get_model(args.model, input_dim=input_dim, big_dim=big_dim, hidden_dim=hidden_dim, emd_modname=args.emd_model_name)
     model.load_state_dict(torch.load(modpath))
     if multi_gpu:
@@ -236,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
     parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
-    parser.add_argument('--loss', choices=['chamfer_loss','emd_loss','vae_loss','mse','emd_loss_layer'], 
+    parser.add_argument('--loss', choices=[m for m in dir(LossFunction) if not m.startswith('__')], 
                         help='loss function', required=True)
     parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
                         help='emd models for loss', default='Symmetric1k.best.pth', required=False)

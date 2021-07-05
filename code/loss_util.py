@@ -93,8 +93,6 @@ class LossFunction:
     def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device=torch.device('cuda:0')):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
-        elif lossname == 'emd_loss_layer':
-            pass
         else:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
@@ -138,7 +136,7 @@ class LossFunction:
         emd = out[0]
         return emd
 
-    def deep_emd_loss(self, x, y, batch, l2_strength=1e-4):
+    def deepemd_loss(self, x, y, batch, l2_strength=1e-4):
         x = get_ptetaphi(x, batch)
         y = get_ptetaphi(y, batch)
         # normalize pt
@@ -159,3 +157,9 @@ class LossFunction:
         # get loss using raghav's implementation of DeepEmd
         emd = deepemd(x, y, device=self.device, l2_strength=l2_strength)
         return emd
+
+    def mse(self):
+        pass
+
+    def emd_in_forward(self):
+        pass
