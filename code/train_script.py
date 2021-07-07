@@ -55,7 +55,6 @@ def forward_and_loss(model, data, loss_ftn_obj):
 
     else:
         batch_output = model(data)
-        y = torch.cat([d.x for d in data]).to(device)
         if multi_gpu:
             y = torch.cat([d.x for d in data]).to(device)
         else:
