@@ -73,12 +73,12 @@ def test(model, loader, total, batch_size, loss_ftn_obj):
 
         batch_loss = forward_and_loss(model, data, loss_ftn_obj)
 
-        loss_scalar = batch_loss.item()
-        sum_loss += loss_scalar
-        t.set_description('eval loss = %.5f' % (loss_scalar))
+        batch_loss = batch_loss.item()
+        sum_loss += batch_loss
+        t.set_description('eval loss = %.5f' % (batch_loss))
         t.refresh() # to show immediately the update
 
-    return sum_loss/(i+1)
+    return sum_loss / (i+1)
 
 def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
     model.train()
@@ -90,11 +90,12 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
 
         batch_loss = forward_and_loss(model, data, loss_ftn_obj)
         batch_loss.backward()
-        loss_scalar = batch_loss.item()
-        t.set_description('train loss = %.5f' % loss_scalar)
-        t.refresh() # to show immediately the update
-        sum_loss += loss_scalar
         optimizer.step()
+
+        batch_loss = batch_loss.item()
+        sum_loss += batch_loss
+        t.set_description('train loss = %.5f' % batch_loss)
+        t.refresh() # to show immediately the update
 
     return sum_loss / (i+1)
 
@@ -137,14 +138,15 @@ def main(args):
     train_samples = len(train_dataset)
     valid_samples = len(valid_dataset)
     test_samples = len(test_dataset)
+    num_workers = args.num_workers
     if multi_gpu:
-        train_loader = DataListLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
-        valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
-        test_loader = DataListLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+        train_loader = DataListLoader(train_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=True)
+        valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
+        test_loader  = DataListLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
     else:
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, pin_memory=True, shuffle=True)
-        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, pin_memory=True, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
+        test_loader  = DataLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
 
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
@@ -248,6 +250,8 @@ if __name__ == '__main__':
                         help='emd models for loss', default='Symmetric1k.best.pth', required=False)
     parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', 
                         default=None, required=False)
+    parser.add_argument('--num-workers', type=int, help='num_workers param for dataloader', 
+                        default=0, required=False)
     args = parser.parse_args()
 
     main(args)
