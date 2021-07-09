@@ -55,16 +55,16 @@ def preprocess_emdnn_input(x, y, batch):
     y = y + eps
  
     # normalize pt
-    Ex = torch_scatter.scatter(src=x[:,0],index=batch, reduce='sum')
-    Ey = torch_scatter.scatter(src=y[:,0],index=batch, reduce='sum')
+    Ex = torch_scatter.scatter(src=x[:,0], index=batch, reduce='sum')
+    Ey = torch_scatter.scatter(src=y[:,0], index=batch, reduce='sum')
     x = normalize_pt(x, Ex, unique_batches)
     y = normalize_pt(y, Ey, unique_batches)
 
     device = x.device.type
-    x = torch.cat((x,torch.ones(len(x),1).to(device)), 1)
-    y = torch.cat((y,torch.ones(len(y),1).to(device)*-1), 1)
-    jet_pair = torch.cat((x,y),0)
-    u = torch.cat((Ex.view(-1,1),Ey.view(-1,1)),dim=1) / 100.0
+    x = torch.cat((x, torch.ones((len(x),1), device=device)), 1)
+    y = torch.cat((y, torch.ones((len(y),1), device=device) * -1), 1)
+    jet_pair = torch.cat((x,y), 0)
+    u = torch.cat((Ex.view(-1,1), Ey.view(-1,1)), dim=1) / 100.0
     data = Data(x=jet_pair, batch=torch.cat((batch,batch)), u=u).to(device)
     return data
 
@@ -97,7 +97,7 @@ class LossFunction:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
                 # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
-                self.emd_model = load_emd_model(emd_modname,device)
+                self.emd_model = load_emd_model(emd_modname, device)
                 # self.emd_model = emd_model.requires_grad_(False)
         self.name = lossname
         self.loss_ftn = loss
@@ -140,8 +140,8 @@ class LossFunction:
         x = get_ptetaphi(x, batch)
         y = get_ptetaphi(y, batch)
         # normalize pt
-        Ex = torch_scatter.scatter(src=x[:,0],index=batch)
-        Ey = torch_scatter.scatter(src=y[:,0],index=batch)
+        Ex = torch_scatter.scatter(src=x[:,0], index=batch)
+        Ey = torch_scatter.scatter(src=y[:,0], index=batch)
         _, counts = torch.unique_consecutive(batch, return_counts=True)
         Ex_repeat = torch.repeat_interleave(Ex, counts, dim=0)
         Ey_repeat = torch.repeat_interleave(Ey, counts, dim=0)
