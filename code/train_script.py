@@ -140,13 +140,13 @@ def main(args):
     test_samples = len(test_dataset)
     num_workers = args.num_workers
     if multi_gpu:
-        train_loader = DataListLoader(train_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=True)
-        valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
-        test_loader  = DataListLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
+        train_loader = DataListLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
+        valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+        test_loader  = DataListLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
     else:
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=True)
-        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
-        test_loader  = DataLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers pin_memory=True, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+        test_loader  = DataLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
 
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
