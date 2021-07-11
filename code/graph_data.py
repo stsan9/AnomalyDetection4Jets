@@ -114,7 +114,6 @@ class GraphDataset(Dataset):
             if i%self.n_events_merge == 0:
                 datas = []
             event_idx = k*self.chunk_size + i
-            ijet = 0
             pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
             for j in range(cols // 3):
                 if (all_events[i][j*3]>0):
@@ -125,22 +124,18 @@ class GraphDataset(Dataset):
             # cluster jets from the particles in one event
             sequence = cluster(pseudojets_input, R=1.0, p=-1)
             jets = sequence.inclusive_jets()
-            jet_num = 0
-            for jet in jets: # for each jet get (px, py, pz, e)
-                # if setting true, only get leading 2 jets and skip events with less than 2 jets
+            if self.leading_pair_only:
+                jets = jets[:2]
+
+            for jet in jets:
                 if self.leading_pair_only:
-                    if len(jets) < 2:
-                        break
-                    elif jet_num > 1:
+                    if len(jets) < 2: # skip events with less than 2 jets
                         break
                 if jet.pt < 200 or len(jet)<=1: continue
-                if self.n_particles > -1:
-                    n_particles = self.n_particles
-                else:
-                    n_particles = len(jet)
-                particles = np.zeros((n_particles, 8))
 
                 # store all the particles of this jet
+                n_particles = self.n_particles if self.n_particles > -1 else len(jet)
+                particles = np.zeros((n_particles, 8))
                 for p, part in enumerate(jet):
                     if n_particles > -1 and p >= n_particles: break
                     # save two representations: px, py, pz, e, and pt, eta, phi, mass
@@ -157,37 +152,25 @@ class GraphDataset(Dataset):
                 else:
                     n_particles = len(jet)
                 pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
-                # save [deta, dphi] as edge attributes (may not be used depending on model)
-                #eta0s = particles[pairs[:,0],6]
-                #eta1s = particles[pairs[:,1],6]
-                #phi0s = particles[pairs[:,0],7]
-                #phi1s = particles[pairs[:,1],7]
-                #detas = np.abs(eta0s - eta1s)
-                #dphis = (phi0s - phi1s + np.pi) % (2 * np.pi) - np.pi
-                #edge_attr = np.stack([detas,dphis],axis=1)
-                #edge_attr = torch.tensor(edge_attr, dtype=torch.float)
                 signal_bit = all_events[i][-1]
                 edge_index = torch.tensor(pairs, dtype=torch.long)
                 edge_index=edge_index.t().contiguous()
                 # save particles as node attributes and target
                 x = torch.tensor(particles, dtype=torch.float)
-                # y = x
-                # save [n_particles, mass, px, py, pz, e] of the jet as global attributes
                 # (may not be used depending on model)
                 u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e, signal_bit], dtype=torch.float)
-                data = Data(x=x, edge_index=edge_index)#), y=y, edge_attr=edge_attr)
+                data = Data(x=x, edge_index=edge_index)
                 data.u = torch.unsqueeze(u, 0)
+
                 if self.pre_filter is not None and not self.pre_filter(data):
                     continue
                 if self.pre_transform is not None:
                     data = self.pre_transform(data)
+
                 datas.append([data])
-                ijet += 1
 
             if i%self.n_events_merge == self.n_events_merge-1:
                 datas = sum(datas,[])
-                #print(datas)
-                # save data in format (particle_data, event_of_jet, mass_of_jet, px, py, pz, e, signal_bit)
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
