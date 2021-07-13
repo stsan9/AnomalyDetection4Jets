@@ -27,8 +27,8 @@ def get_ptetaphi(x,batch):
     pz = x[:,2]
     p = torch.sqrt(torch.square(px) + torch.square(py) + torch.square(pz) + eps)
     pt = torch.sqrt(torch.square(px) + torch.square(py) + eps)
-    eta = arctanh(pz / (p + eps))
-    phi = torch.atan(py / (px + eps))
+    eta = arctanh((pz + eps) / (p + eps))
+    phi = torch.atan2((py + eps), (px + eps))
     mat = torch.stack((pt,eta,phi),dim=1)
     return mat
 
