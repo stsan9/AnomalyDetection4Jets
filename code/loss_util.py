@@ -51,7 +51,7 @@ def preprocess_emdnn_input(x, y, batch):
     # center by pt centroid while accounting for torch geo batching
     _, unique_batches = torch.unique_consecutive(batch, return_counts=True)
     x = center_by_pt(x, batch, unique_batches)
-    y = center_by_pt(x, batch, unique_batches)
+    y = center_by_pt(y, batch, unique_batches)
     y = y + eps
  
     # normalize pt
