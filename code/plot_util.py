@@ -18,16 +18,14 @@ def loss_distr(losses, save_name):
     plt.savefig(osp.join(save_name+'.pdf'))
     plt.close()
 
-def plot_reco_difference(input_fts, reco_fts, model_fname, save_path):
+def plot_reco_difference(input_fts, reco_fts, save_path=None):
     """
     Plot the difference between the autoencoder's reconstruction and the original input
 
     Args:
         input_fts (torch.tensor): the original features of the particles
         reco_fts (torch.tensor): the reconstructed features
-        model_fname (str): name of saved model
     """
-    Path(save_path).mkdir(parents=True, exist_ok=True)
     label = ['$p_x~[GeV]$', '$p_y~[GeV]$', '$p_z~[GeV]$']
     feat = ['px', 'py', 'pz']
 
@@ -45,8 +43,10 @@ def plot_reco_difference(input_fts, reco_fts, model_fname, save_path):
         plt.xlabel(label[i], fontsize='x-large')
         plt.ylabel('Particles', fontsize='x-large')
         plt.tight_layout()
-        plt.savefig(osp.join(save_path, feat[i] + '.pdf'))
-        plt.close()
+        if save_path != None:
+            Path(save_path).mkdir(parents=True, exist_ok=True)
+            plt.savefig(osp.join(save_path, feat[i] + '.pdf'))
+            plt.close()
 
 def gen_in_out(model, loader, device):
     input_fts = []
@@ -64,7 +64,7 @@ def gen_in_out(model, loader, device):
         reco_out = model(t)
         if isinstance(reco_out, tuple):
             reco_out = reco_out[0]
-        reco_fts.append(reco_out.cpu().detach())
+        reco_fts.append(reco_out.detach().cpu())
 
     input_fts = torch.cat(input_fts)
     reco_fts = torch.cat(reco_fts)
