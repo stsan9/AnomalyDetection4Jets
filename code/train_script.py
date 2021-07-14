@@ -221,10 +221,10 @@ def main(args):
     model.to(device)
 
     input_fts, reco_fts = gen_in_out(model, valid_loader, device)
-    plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'valid'))
+    plot_reco_difference(input_fts, reco_fts, osp.join(save_dir, 'reconstruction_post_train', 'valid'))
 
     input_fts, reco_fts = gen_in_out(model, test_loader, device)
-    plot_reco_difference(input_fts, reco_fts, model_fname, osp.join(save_dir, 'reconstruction_post_train', 'test'))
+    plot_reco_difference(input_fts, reco_fts, osp.join(save_dir, 'reconstruction_post_train', 'test'))
     print('Completed')
 
 if __name__ == '__main__':
