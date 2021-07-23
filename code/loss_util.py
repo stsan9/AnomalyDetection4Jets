@@ -126,7 +126,7 @@ class LossFunction:
 
         return BCE + KLD
 
-    def emd_loss(self, x, y, batch):
+    def emd_loss(self, x, y, batch, reduce=True):
         self.emd_model.eval()
         # px py pz -> pt eta phi
         x = get_ptetaphi(x, batch)
@@ -134,7 +134,10 @@ class LossFunction:
         data = preprocess_emdnn_input(x, y, batch)
         out = self.emd_model(data)
         emd = out[0]
-        return emd.mean()
+        if reduce:
+            return emd.mean()
+        else:
+            return emd
 
     def deepemd_loss(self, x, y, batch, l2_strength=1e-4):
         x = get_ptetaphi(x, batch)
