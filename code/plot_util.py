@@ -48,6 +48,7 @@ def plot_reco_difference(input_fts, reco_fts, save_path=None):
             plt.savefig(osp.join(save_path, feat[i] + '.pdf'))
             plt.close()
 
+@torch.no_grad()
 def gen_in_out(model, loader, device):
     input_fts = []
     reco_fts = []
