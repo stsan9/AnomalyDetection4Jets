@@ -1,16 +1,31 @@
-FROM gitlab-registry.nautilus.optiputer.net/prp/jupyterlab:latest
+FROM gitlab-registry.nrp-nautilus.io/prp/jupyter-stack/prp:latest
 
-LABEL maintainer="Javier Duarte <jduarte@ucsd.edu>"
+LABEL maintainer="Steven Tsan <stsan@ucsd.edu>"
 
 USER $NB_USER
 
-RUN set -x \
-    && pip install coffea tables mplhep pyjet
-    
+ENV USER=${NB_USER}
 
-# RUN git clone https://gitlab.nautilus.optiputer.net/jmduarte/anomalydetection4jets.git $HOME/AnomalyDetection4Jets && fix-permissions $HOME/AnomalyDetection4Jets 
-# WORKDIR $HOME/AnomalyDetection4Jets
-# ADD https://zenodo.org/record/3596919/files/events_LHCO2020_backgroundMC_Pythia.h5?download=1 events_LHCO2020_backgroundMC_Pythia.h5
-# ADD https://zenodo.org/record/3596919/files/events_LHCO2020_BlackBox1.h5?download=1 events_LHCO2020_BlackBox1.h5
-# ADD https://zenodo.org/record/3596919/files/events_LHCO2020_BlackBox2.h5?download=1 events_LHCO2020_BlackBox2.h5
-# ADD https://zenodo.org/record/3596919/files/events_LHCO2020_BlackBox3.h5?download=1 events_LHCO2020_BlackBox3.h5
+RUN sudo apt-get update
+RUN sudo apt-get install -y vim
+
+
+RUN set -x \
+    && pip install coffea tables mplhep pyjet llvmlite --ignore-installed \
+    && pip install git+git://github.com/jmduarte/pyBumpHunter.git@cosmetics#egg=pyBumpHunter \
+    && pip install pot energyflow \
+    && pip install natsort \
+    && pip install qpth cvxpy
+
+ENV TORCH=1.8.1
+ENV CUDA=cu102
+    
+RUN set -x \
+    && pip install torch-scatter -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html \
+    && pip install torch-sparse -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html \
+    && pip install torch-cluster -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html \
+    && pip install torch-spline-conv -f https://pytorch-geometric.com/whl/torch-${TORCH}+${CUDA}.html \
+    && pip install torch-geometric
+
+RUN set -x \
+    && fix-permissions /home/$NB_USER
