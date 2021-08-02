@@ -28,7 +28,7 @@ from torch_geometric.data import Data, DataListLoader, Batch
 import models
 import emd_models
 from loss_util import LossFunction
-from graph_data import GraphDataset
+from datagen.graph_data_gae import GraphDataset
 from plot_util import loss_distr, plot_reco_difference
 
 plt.style.use(hep.style.CMS)

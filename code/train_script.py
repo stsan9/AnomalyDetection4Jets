@@ -16,7 +16,7 @@ import models
 import emd_models
 from util import get_model
 from loss_util import LossFunction
-from graph_data import GraphDataset
+from datagen.graph_data_gae import GraphDataset
 from plot_util import loss_curves, plot_reco_difference, gen_in_out
 
 torch.manual_seed(0)
