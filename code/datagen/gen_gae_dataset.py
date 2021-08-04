@@ -1,3 +1,5 @@
+from graph_data_gae import GraphDataset
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()

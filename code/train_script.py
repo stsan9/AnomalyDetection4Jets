@@ -100,17 +100,16 @@ def train(model, optimizer, loader, total, batch_size, loss_ftn_obj):
     return sum_loss / (i+1)
 
 def main(args):
-    batch_size = args.batch_size
     model_fname = args.mod_name
 
-    if multi_gpu and batch_size < torch.cuda.device_count():
+    if multi_gpu and args.batch_size < torch.cuda.device_count():
         exit('Batch size too small')
-    if args.loss == 'deepemd_loss' and batch_size > 1:
+    if args.loss == 'deepemd_loss' and args.batch_size > 1:
         exit('deepemd_loss can only be used with batch_size of 1 for now')
 
     # make a folder for the graphs of this model
     Path(args.output_dir).mkdir(exist_ok=True)
-    save_dir = osp.join(args.output_dir,model_fname)
+    save_dir = osp.join(args.output_dir, model_fname)
     Path(save_dir).mkdir(exist_ok=True)
 
     # dataset
@@ -119,15 +118,6 @@ def main(args):
     dataset = [data for data in chain.from_iterable(gdata)]
     random.Random(0).shuffle(dataset)
     dataset = dataset[:args.num_data]
-
-    # temporary patch
-    tmp = []
-    for d in dataset:
-        d.x = d.x[:,:3] # px py pz
-        if args.loss == 'deepemd_loss' and len(d.x) <= 30:
-            tmp.append(d)
-    if args.loss == 'deepemd_loss':
-        dataset = tmp
 
     fulllen = len(dataset)
     train_len = int(0.8 * fulllen)
@@ -140,17 +130,17 @@ def main(args):
     test_samples = len(test_dataset)
     num_workers = args.num_workers
     if multi_gpu:
-        train_loader = DataListLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
-        valid_loader = DataListLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
-        test_loader  = DataListLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+        train_loader = DataListLoader(train_dataset, batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
+        valid_loader = DataListLoader(valid_dataset, batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+        test_loader  = DataListLoader(test_dataset,  batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
     else:
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
-        valid_loader = DataLoader(valid_dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
-        test_loader  = DataLoader(test_dataset,  batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=True)
+        valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
+        test_loader  = DataLoader(test_dataset,  batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
 
     loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
 
-    # create model
+    # model
     input_dim = 3
     big_dim = 32
     hidden_dim = args.lat_dim
@@ -159,18 +149,19 @@ def main(args):
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=4)
 
-    # load in prior model state
+    # load model
     valid_losses = []
     train_losses = []
     start_epoch = 0
-    modpath = osp.join(save_dir,model_fname+'.best.pth')
-    try:
+    modpath = osp.join(save_dir, model_fname+'.best.pth')
+    if osp.isfile(modpath):
         model.load_state_dict(torch.load(modpath))
-        train_losses, valid_losses, start_epoch = torch.load(osp.join(save_dir,'losses.pt'))
-        best_valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
+        best_valid_loss = test(model, valid_loader, valid_samples, args.batch_size, loss_ftn_obj)
         print('Loaded model')
         print(f'Saved model valid loss: {best_valid_loss}')
-    except:
+        if osp.isfile(osp.join(save_dir,'losses.pt')):
+            train_losses, valid_losses, start_epoch = torch.load(osp.join(save_dir,'losses.pt'))
+    else:
         print('Creating new model')
         best_valid_loss = 9999999
     if multi_gpu:
@@ -183,8 +174,8 @@ def main(args):
     loss = best_valid_loss
     for epoch in range(start_epoch, n_epochs):
 
-        loss = train(model, optimizer, train_loader, train_samples, batch_size, loss_ftn_obj)
-        valid_loss = test(model, valid_loader, valid_samples, batch_size, loss_ftn_obj)
+        loss = train(model, optimizer, train_loader, train_samples, args.batch_size, loss_ftn_obj)
+        valid_loss = test(model, valid_loader, valid_samples, args.batch_size, loss_ftn_obj)
 
         scheduler.step(valid_loss)
         train_losses.append(loss)
