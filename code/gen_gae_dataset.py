@@ -1,4 +1,4 @@
-from graph_data_gae import GraphDataset
+from datagen.graph_data_gae import GraphDataset
 
 if __name__ == "__main__":
     import argparse

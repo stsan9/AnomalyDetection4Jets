@@ -14,7 +14,7 @@ from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 
 import models
 import emd_models
-from util import get_model
+from util.util import get_model
 from loss_util import LossFunction
 from datagen.graph_data_gae import GraphDataset
 from plot_util import loss_curves, plot_reco_difference, gen_in_out

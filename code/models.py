@@ -10,7 +10,7 @@ from torch_scatter import scatter_mean, scatter
 from torch.nn import Sequential as Seq, Linear as Lin, ReLU
 from torch_geometric.nn import MetaLayer, EdgeConv, global_mean_pool, DynamicEdgeConv
 
-from loss_util import get_ptetaphi, load_emd_model, eps, preprocess_emdnn_input
+from loss_util import load_emd_model, eps, preprocess_emdnn_input
 
 # GNN AE using EdgeConv (mean aggregation graph operation). Basic GAE model.
 class EdgeNet(nn.Module):

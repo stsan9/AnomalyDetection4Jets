@@ -10,7 +10,7 @@ from torch_geometric.data import Dataset, Data
 from natsort import natsorted
 from sys import exit
 
-from process_util import jet_particles, normalize
+from util.gdata_util import jet_particles, normalize
 
 class GraphDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None, n_jets=1000,
