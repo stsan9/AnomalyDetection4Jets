@@ -44,7 +44,7 @@ def collate(items): # collate function for data loaders (transforms list of list
     return Batch.from_data_list(l)
 
 class GraphDataset(Dataset):
-    def __init__(self, root, transform=None, pre_transform=None,
+    def __init__(self, root, transform=None, pre_transform=None, n_particles=-1,
                  bb=0, n_events=-1, n_proc=1, R=1.0, n_events_merge=100):
         """
         Initialize parameters of graph dataset
