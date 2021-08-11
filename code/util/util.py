@@ -1,4 +1,4 @@
-import models.models
+import models.models as models
 
 def get_model(modname, **kwargs):
     input_dim = kwargs['input_dim']

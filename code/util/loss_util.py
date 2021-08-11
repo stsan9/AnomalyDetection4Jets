@@ -6,7 +6,7 @@ import os.path as osp
 from torch_geometric.data import Data
 from torch_geometric.utils import to_dense_batch
 
-import models.emd_models
+import models.emd_models as emd_models
 from util.emd_loss import emd_loss as deepemd
 
 multi_gpu = torch.cuda.device_count()>1

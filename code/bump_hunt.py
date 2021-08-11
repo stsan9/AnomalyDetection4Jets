@@ -25,8 +25,8 @@ from torch.utils.data import random_split
 from matplotlib.backends.backend_pdf import PdfPages
 from torch_geometric.data import Data, DataListLoader, Batch
 
-import models.models
-import models.emd_models
+import models.models as models
+import models.emd_models as emd_models
 from util.loss_util import LossFunction
 from datagen.graph_data_gae import GraphDataset
 from util.plot_util import loss_distr, plot_reco_difference
@@ -363,23 +363,7 @@ def bump_hunt(df, cuts, model_fname, model, bb, save_path):
         plt.savefig(osp.join(save_path,'roc.pdf'))
         plt.close()
 
-if __name__ == "__main__":
-    saved_models = [osp.basename(x) for x in glob.glob('/anomalyvol/experiments/*')]
-
-    # process arguments
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model-name", type=str, help="Saved model name without file extension", required=True, choices=saved_models)
-    parser.add_argument("--output-dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/experiments/')
-    parser.add_argument("--model", choices=models.model_list, help="model selection", required=True)
-    parser.add_argument("--no-E", action='store_true', help="If model was trained without E feature", default=False, required=False)
-    parser.add_argument("--overwrite", action='store_true', help="Toggle overwrite of pkl. Default False.", default=False, required=False)
-    parser.add_argument("--num-events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
-    parser.add_argument("--latent-dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
-    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
-    parser.add_argument("--box-num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", required=True)
-    args = parser.parse_args()
-
+def main(args):
     # validate arguments
     if args.num_events <= 0 or args.num_events > 1000000:
         exit("--num_events must be in range (0, 1000000]")
@@ -436,3 +420,22 @@ if __name__ == "__main__":
         reco_fts = torch.load(osp.join(output_dir,model_fname,bb_name,'reco_fts.pt'))
     plot_reco_difference(input_fts, reco_fts, model_fname, save_path)
     bump_hunt(df, cuts, model_fname, model, bb_name, save_path)
+
+if __name__ == "__main__":
+    saved_models = [osp.basename(x) for x in glob.glob('/anomalyvol/experiments/*')]
+
+    # process arguments
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name", type=str, help="Saved model name without file extension", required=True, choices=saved_models)
+    parser.add_argument("--output-dir", type=str, help="Output directory for files.", required=False, default='/anomalyvol/experiments/')
+    parser.add_argument("--model", choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models.models'], help="model selection", required=True)
+    parser.add_argument("--no-E", action='store_true', help="If model was trained without E feature", default=False, required=False)
+    parser.add_argument("--overwrite", action='store_true', help="Toggle overwrite of pkl. Default False.", default=False, required=False)
+    parser.add_argument("--num-events", type=int, help="How many events to process (multiple of 100). Default 1mil", default=1000000, required=False)
+    parser.add_argument("--latent-dim", type=int, help="How many units for the latent space (def=2)", default=2, required=False)
+    parser.add_argument("--loss", choices=["chamfer_loss","emd_loss","vae_loss","mse"], help="loss function", required=True)
+    parser.add_argument("--box-num", type=int, help="0=QCD-background; 1=bb1; 2=bb2; 4=rnd", required=True)
+    args = parser.parse_args()
+
+    main(args)

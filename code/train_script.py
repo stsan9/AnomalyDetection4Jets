@@ -12,8 +12,8 @@ from torch.utils.data import random_split
 from torch_geometric.nn import EdgeConv, global_mean_pool, DataParallel
 from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 
-import models.models
-import models.emd_models
+import models.models as models
+import models.emd_models as emd_models
 from util.util import get_model
 from util.loss_util import LossFunction
 from datagen.graph_data_gae import GraphDataset
@@ -230,7 +230,7 @@ if __name__ == '__main__':
     parser.add_argument('--box-num', type=int, help='0=QCD-background; 1=bb1; 2=bb2; 4=rnd', default=0, required=False)
     parser.add_argument('--lat-dim', type=int, help='latent space size', default=2, required=False)
     parser.add_argument('--model', 
-                        choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models'], 
+                        choices=[m[0] for m in inspect.getmembers(models, inspect.isclass) if m[1].__module__ == 'models.models'], 
                         help='model selection', required=True)
     parser.add_argument('--batch-size', type=int, help='batch size', default=2, required=False)
     parser.add_argument('--lr', type=float, help='learning rate', default=1e-3, required=False)
