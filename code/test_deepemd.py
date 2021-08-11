@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch_geometric.data import DataLoader
 
-from loss_util import LossFunction
+from util.loss_util import LossFunction
 from datagen.graph_data_gae import GraphDataset
 
 if __name__ == "__main__":

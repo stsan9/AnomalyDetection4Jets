@@ -1,12 +1,13 @@
 import sys
 import torch
-import emd_models
 import numpy as np
 import torch_scatter
 import os.path as osp
 from torch_geometric.data import Data
-from emd_loss import emd_loss as deepemd
 from torch_geometric.utils import to_dense_batch
+
+import models.emd_models
+from util.emd_loss import emd_loss as deepemd
 
 multi_gpu = torch.cuda.device_count()>1
 eps = 1e-12

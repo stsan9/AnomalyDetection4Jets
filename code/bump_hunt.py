@@ -25,11 +25,11 @@ from torch.utils.data import random_split
 from matplotlib.backends.backend_pdf import PdfPages
 from torch_geometric.data import Data, DataListLoader, Batch
 
-import models
-import emd_models
-from loss_util import LossFunction
+import models.models
+import models.emd_models
+from util.loss_util import LossFunction
 from datagen.graph_data_gae import GraphDataset
-from plot_util import loss_distr, plot_reco_difference
+from util.plot_util import loss_distr, plot_reco_difference
 
 plt.style.use(hep.style.CMS)
 random.seed(0)

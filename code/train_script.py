@@ -12,12 +12,12 @@ from torch.utils.data import random_split
 from torch_geometric.nn import EdgeConv, global_mean_pool, DataParallel
 from torch_geometric.data import Data, DataLoader, DataListLoader, Batch
 
-import models
-import emd_models
+import models.models
+import models.emd_models
 from util.util import get_model
-from loss_util import LossFunction
+from util.loss_util import LossFunction
 from datagen.graph_data_gae import GraphDataset
-from plot_util import loss_curves, plot_reco_difference, gen_in_out
+from util.plot_util import loss_curves, plot_reco_difference, gen_in_out
 
 torch.manual_seed(0)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
