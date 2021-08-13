@@ -98,7 +98,7 @@ def main(args):
         valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
         test_loader  = DataLoader(test_dataset,  batch_size=args.batch_size, num_workers=num_workers, pin_memory=True, shuffle=False)
 
-    loss_ftn_obj = LossFunction(args.loss, emd_modname=args.emd_model_name, device=device)
+    loss_ftn_obj = LossFunction(args.loss, emd_model_name=args.emd_model_name, device=device)
 
     # model
     input_dim = 3
@@ -197,8 +197,8 @@ if __name__ == '__main__':
     parser.add_argument('--patience', type=int, help='patience', default=10, required=False)
     parser.add_argument('--loss', choices=[m for m in dir(LossFunction) if not m.startswith('__')], 
                         help='loss function', required=True)
-    parser.add_argument('--emd-model-name', choices=[osp.basename(x) for x in glob.glob('/anomalyvol/emd_models/*')], 
-                        help='emd models for loss', default='Symmetric1k.best.pth', required=False)
+    parser.add_argument('--emd-model-name', choices=[osp.basename(x).split('.')[0] for x in glob.glob('/anomalyvol/emd_models/*')], 
+                        help='emd models for loss', default='EmdNNSpl', required=False)
     parser.add_argument('--num-data', type=int, help='how much data to use (e.g. 10 jets)', 
                         default=None, required=False)
     parser.add_argument('--num-workers', type=int, help='num_workers param for dataloader', 
