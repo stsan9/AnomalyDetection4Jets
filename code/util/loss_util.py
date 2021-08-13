@@ -13,9 +13,9 @@ multi_gpu = torch.cuda.device_count()>1
 eps = 1e-12
 torch.autograd.set_detect_anomaly(True)
 
-def load_emd_model(modname, device):
-    emd_model = getattr(emd_models, modname[:-9])(device=device)
-    modpath = osp.join('/anomalyvol/emd_models/', modname)
+def load_emd_model(emd_model_name, device):
+    emd_model = getattr(emd_models, emd_model_name)(device=device)
+    modpath = osp.join('/anomalyvol/emd_models/', emd_model_name + '.best.pth')
     emd_model.load_state_dict(torch.load(modpath, map_location=device))
     return emd_model
 
@@ -52,14 +52,14 @@ def pairwise_distance(x, y, device=None):
     return dist
 
 class LossFunction:
-    def __init__(self, lossname, emd_modname='EmdNNRel.best.pth', device=torch.device('cuda:0')):
+    def __init__(self, lossname, emd_model_name='EmdNNSpl', device=torch.device('cuda:0')):
         if lossname == 'mse':
             loss = torch.nn.MSELoss(reduction='mean')
         else:
             loss = getattr(self, lossname)
             if lossname == 'emd_loss':
                 # if using DataParallel it's merged into the network's forward pass to distribute gpu memory
-                self.emd_model = load_emd_model(emd_modname, device)
+                self.emd_model = load_emd_model(emd_model_name, device)
                 # self.emd_model = emd_model.requires_grad_(False)
         self.name = lossname
         self.loss_ftn = loss

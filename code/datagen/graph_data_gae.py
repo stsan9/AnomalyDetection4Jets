@@ -45,7 +45,7 @@ def collate(items): # collate function for data loaders (transforms list of list
 
 class GraphDataset(Dataset):
     def __init__(self, root, transform=None, pre_transform=None, n_particles=-1,
-                 bb=0, n_events=-1, n_proc=1, R=1.0, n_events_merge=100):
+                 bb=0, n_events=-1, n_proc=1, R=1.0, n_events_merge=100, part_type='xyz'):
         """
         Initialize parameters of graph dataset
         Args:
@@ -55,6 +55,7 @@ class GraphDataset(Dataset):
             n_events (int): how many events to process (-1=all)
             n_proc (int): number of processes to split into
             n_events_merge (int): how many events to merge
+            part_type (str): (px, py, pz) or relative (pt, eta, phi)
         """
         max_events = int(1.1e6 if bb == -1 else 1e6)
         self.n_particles = n_particles
@@ -64,6 +65,7 @@ class GraphDataset(Dataset):
         self.n_proc = n_proc
         self.R = R
         self.chunk_size = self.n_events // self.n_proc
+        self.part_type = part_type
         self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt', 'data_rnd_{}.pt']
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
@@ -105,7 +107,7 @@ class GraphDataset(Dataset):
             k (int): Counter of the process used to separate chunk of data to process
         """
         df = pd.read_hdf(raw_path, start = k * self.chunk_size, stop = (k + 1) * self.chunk_size)
-        part_gen = jet_particles(df, R=self.R, u=True)
+        part_gen = jet_particles(df, R=self.R, u=True, part_type=self.part_type)
 
         datas = []
         for particles, n_particles, jet_mass, jet_px, jet_py, jet_pz, jet_e, signal_bit, row in part_gen:

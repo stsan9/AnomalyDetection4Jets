@@ -7,7 +7,7 @@ from pyjet import cluster, DTYPE_PTEPM
 
 ak.behavior.update(vector.behavior)
 
-def jet_particles(df, R=1.0, u=False):
+def jet_particles(df, R=1.0, u=False, part_type='xyz'):
     all_events = df.values
     rows = all_events.shape[0]
     cols = all_events.shape[1]
@@ -29,10 +29,15 @@ def jet_particles(df, R=1.0, u=False):
             particles = np.zeros((n_particles, 3))
             # store all the particles of this jet
             for p, part in enumerate(jet):
-                particles[p,:] = np.array([part.pt,
-                                           part.eta,
-                                           part.phi])
-            particles = normalize(particles)    # relative pt eta phi
+                if part_type == 'xyz':
+                    particles[p,:] = np.array([part.px,
+                                               part.py,
+                                               part.pz])
+                else:
+                    particles[p,:] = np.array([part.pt,
+                                               part.eta,
+                                               part.phi])
+                    particles = normalize(particles)    # relative pt eta phi
 
             if u:
                 signal_bit = all_events[i][-1]
@@ -46,11 +51,11 @@ def dphi(phi1, phi2):
 def normalize(jet):
     # convert into a coffea vector
     part_vecs = ak.zip({
-        "pt": jet[:, 0:1],
-        "eta": jet[:, 1:2],
-        "phi": jet[:, 2:3],
-        "mass": np.zeros_like(jet[:, 1:2])
-        }, with_name="PtEtaPhiMLorentzVector")
+        'pt': jet[:, 0:1],
+        'eta': jet[:, 1:2],
+        'phi': jet[:, 2:3],
+        'mass': np.zeros_like(jet[:, 1:2])
+        }, with_name='PtEtaPhiMLorentzVector')
 
     # sum over all the particles in each jet to get the jet 4-vector
     jet_vecs = part_vecs.sum(axis=0)

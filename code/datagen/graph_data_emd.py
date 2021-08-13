@@ -4,6 +4,7 @@ import torch
 import tables
 import itertools
 import numpy as np
+import pandas as pd
 import os.path as osp
 import energyflow as ef
 from torch_geometric.data import Dataset, Data
@@ -47,13 +48,13 @@ class GraphDataset(Dataset):
         Js = []
         for raw_path in self.raw_paths:
             # load lhco data and get list of jet particles: (pt_rel, eta_rel, phi_rel)
-            if self.lhco_back:    
+            if self.lhco_back:
                 # start from tail end of raw dataset
                 start = 1e6 - self.n_events
                 df = pd.read_hdf(raw_path, start=start)
             else:
                 df = pd.read_hdf(raw_path, stop=self.n_events)
-            part_gen = jet_particles(df, R=self.R)
+            part_gen = jet_particles(df, R=self.R, part_type='relptetaphi')
             Js = np.array([x for x in part_gen],dtype='O')[self.n_jets]
 
         # calc emd between all jet pairs and save datum
