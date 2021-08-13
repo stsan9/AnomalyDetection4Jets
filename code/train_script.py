@@ -32,12 +32,9 @@ def forward_and_loss(model, data, loss_ftn_obj):
     if 'emd_loss' in loss_ftn_obj.name or loss_ftn_obj.name == 'chamfer_loss':
         batch_output = model(data)
         if multi_gpu:
-            data_batch = Batch.from_data_list(data).to(device)
-            y = data_batch.x
-            batch = data_batch.batch
-        else:
-            y = data.x
-            batch = data.batch
+            data = Batch.from_data_list(data).to(device)
+        y = data.x
+        batch = data.batch
         batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, batch)
 
     elif loss_ftn_obj.name == 'emd_in_forward':
@@ -46,20 +43,14 @@ def forward_and_loss(model, data, loss_ftn_obj):
 
     elif loss_ftn_obj.name == 'vae_loss':
         batch_output, mu, log_var = model(data)
-        if multi_gpu:
-            y = torch.cat([d.x for d in data]).to(device)
-        else:
-            y = data.x
-            y = y.contiguous()
+        y = torch.cat([d.x for d in data]).to(device) if multi_gpu else data.x
+        y = y.contiguous()
         batch_loss = loss_ftn_obj.loss_ftn(batch_output, y, mu, log_var)
 
     else:
         batch_output = model(data)
-        if multi_gpu:
-            y = torch.cat([d.x for d in data]).to(device)
-        else:
-            y = data.x
-            y = y.contiguous()
+        y = torch.cat([d.x for d in data]).to(device) if multi_gpu else data.x
+        y = y.contiguous()
         batch_loss = loss_ftn_obj.loss_ftn(batch_output, y)
     return batch_loss
 
