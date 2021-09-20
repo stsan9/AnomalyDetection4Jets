@@ -1,3 +1,6 @@
+# New repo
+https://github.com/ucsd-hep-ex/GraphAE
+
 # Particle Graph Autoencoders for Anomaly Detection
 ![GAE_new-1](https://user-images.githubusercontent.com/42155174/98452299-ca24e980-2102-11eb-9474-c67a67f31923.png)
 
