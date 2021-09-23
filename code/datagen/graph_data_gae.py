@@ -6,17 +6,19 @@
     is already present in specified directory, will just load in
     data.
 """
-import os.path as osp
+import glob
 import torch
-from torch_geometric.data import Dataset, Data
-import itertools
 import tables
+import itertools
 import numpy as np
 import pandas as pd
-from pyjet import cluster,DTYPE_PTEPM
-import glob
+import os.path as osp
 import multiprocessing
 from pathlib import Path
+from pyjet import cluster,DTYPE_PTEPM
+from torch_geometric.data import Dataset, Data
+
+from util.gdata_util import jet_particles
 
 def process_func(args):
     self, raw_path, k = args
@@ -41,11 +43,9 @@ def collate(items): # collate function for data loaders (transforms list of list
     l = sum(items, [])
     return Batch.from_data_list(l)
 
-
 class GraphDataset(Dataset):
-    def __init__(self, root, transform=None, pre_transform=None,
-                 n_particles=-1, bb=0, n_events=-1, n_proc=1,
-                 n_events_merge=100, leading_pair_only = 0):
+    def __init__(self, root, transform=None, pre_transform=None, n_particles=-1,
+                 bb=0, n_events=-1, n_proc=1, R=1.0, n_events_merge=100, part_type='xyz'):
         """
         Initialize parameters of graph dataset
         Args:
@@ -55,16 +55,18 @@ class GraphDataset(Dataset):
             n_events (int): how many events to process (-1=all)
             n_proc (int): number of processes to split into
             n_events_merge (int): how many events to merge
-            leading_pair_only (int): toggle to process only leading 2 jets / event
+            part_type (str): (px, py, pz) or relative (pt, eta, phi)
         """
+        max_events = int(1.1e6 if bb == -1 else 1e6)
         self.n_particles = n_particles
         self.bb = bb
-        self.n_events = 1000000 if n_events==-1 else n_events
+        self.n_events = max_events if n_events==-1 else n_events
         self.n_events_merge = n_events_merge
         self.n_proc = n_proc
+        self.R = R
         self.chunk_size = self.n_events // self.n_proc
+        self.part_type = part_type
         self.file_string = ['data_{}.pt', 'data_bb1_{}.pt', 'data_bb2_{}.pt', 'data_bb3_{}.pt', 'data_rnd_{}.pt']
-        self.leading_pair_only = leading_pair_only
         super(GraphDataset, self).__init__(root, transform, pre_transform)
 
 
@@ -105,73 +107,43 @@ class GraphDataset(Dataset):
             k (int): Counter of the process used to separate chunk of data to process
         """
         df = pd.read_hdf(raw_path, start = k * self.chunk_size, stop = (k + 1) * self.chunk_size)
-        all_events = df.values
-        rows = all_events.shape[0]
-        cols = all_events.shape[1]
+        part_gen = jet_particles(df, R=self.R, u=True, part_type=self.part_type)
+
         datas = []
-        # iterate over events
-        for i in range(rows):
-            if i%self.n_events_merge == 0:
-                datas = []
-            event_idx = k*self.chunk_size + i
-            pseudojets_input = np.zeros(len([x for x in all_events[i][::3] if x > 0]), dtype=DTYPE_PTEPM)
-            for j in range(cols // 3):
-                if (all_events[i][j*3]>0):
-                    pseudojets_input[j]['pT'] = all_events[i][j*3]
-                    pseudojets_input[j]['eta'] = all_events[i][j*3+1]
-                    pseudojets_input[j]['phi'] = all_events[i][j*3+2]
+        for particles, n_particles, jet_mass, jet_px, jet_py, jet_pz, jet_e, signal_bit, row in part_gen:
 
-            # cluster jets from the particles in one event
-            sequence = cluster(pseudojets_input, R=1.0, p=-1)
-            jets = sequence.inclusive_jets()
-            if self.leading_pair_only:
-                jets = jets[:2]
-
-            for jet in jets:
-                if self.leading_pair_only:
-                    if len(jets) < 2: # skip events with less than 2 jets
-                        break
-                if jet.pt < 200 or len(jet)<=1: continue
-
-                # store all the particles of this jet
-                n_particles = self.n_particles if self.n_particles > -1 else len(jet)
-                particles = np.zeros((n_particles, 8))
-                for p, part in enumerate(jet):
-                    if n_particles > -1 and p >= n_particles: break
-                    # save two representations: px, py, pz, e, and pt, eta, phi, mass
-                    particles[p,:] = np.array([part.px,
-                                               part.py,
-                                               part.pz,
-                                               part.e,
-                                               part.pt,
-                                               part.eta,
-                                               part.phi,
-                                               part.mass])
-                if self.n_particles>-1:
-                    n_particles = min(len(jet),self.n_particles)
+            if self.n_particles != -1:   # 0 pad / fix length
+                if self.n_particles < n_particles:
+                    particles = particles[:self.n_particles]
                 else:
-                    n_particles = len(jet)
-                pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
-                signal_bit = all_events[i][-1]
-                edge_index = torch.tensor(pairs, dtype=torch.long)
-                edge_index=edge_index.t().contiguous()
-                # save particles as node attributes and target
-                x = torch.tensor(particles, dtype=torch.float)
-                # (may not be used depending on model)
-                u = torch.tensor([event_idx, n_particles, jet.mass, jet.px, jet.py, jet.pz, jet.e, signal_bit], dtype=torch.float)
-                data = Data(x=x, edge_index=edge_index)
-                data.u = torch.unsqueeze(u, 0)
+                    z = np.zeros((self.n_particles,3))
+                    z[:particles.shape[0],:] = particles
+                    particles = z
 
-                if self.pre_filter is not None and not self.pre_filter(data):
-                    continue
-                if self.pre_transform is not None:
-                    data = self.pre_transform(data)
+            event_idx = k*self.chunk_size + row
+            pairs = np.stack([[m, n] for (m, n) in itertools.product(range(n_particles),range(n_particles)) if m!=n])
+            edge_index = torch.tensor(pairs, dtype=torch.long)
+            edge_index=edge_index.t().contiguous()
+            x = torch.tensor(particles, dtype=torch.float) # node attribute and AE target
+            u = torch.tensor([event_idx, n_particles, jet_mass, jet_px, jet_py, jet_pz, jet_e, signal_bit], dtype=torch.float)
+            data = Data(x=x, edge_index=edge_index)
+            data.u = torch.unsqueeze(u, 0)
 
-                datas.append([data])
+            if self.pre_filter is not None and not self.pre_filter(data):
+                continue
+            if self.pre_transform is not None:
+                data = self.pre_transform(data)
 
-            if i%self.n_events_merge == self.n_events_merge-1:
+            datas.append([data])
+
+            if row % self.n_events_merge == self.n_events_merge-1:
                 datas = sum(datas,[])
                 torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
+                datas = []
+
+        if len(data) != 0:  # save any extras
+            datas = sum(datas,[])
+            torch.save(datas, osp.join(self.processed_dir, self.file_string[self.bb].format(event_idx)))
 
     def process(self):
         """
@@ -227,19 +199,3 @@ class GraphDataset(Dataset):
         torch.save(__repr__(self.pre_filter), path)
 
         print('Done!')
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, help="dataset path", required=True)
-    parser.add_argument("--n-proc", type=int, default=1, help="number of concurrent processes")
-    parser.add_argument("--n-events", type=int, default=-1, help="number of events (-1 means all)")
-    parser.add_argument("--n-particles", type=int, default=-1, help="max number of particles per jet with zero-padding (-1 means all)")
-    parser.add_argument("--bb", type=int, default=0, help="black box number (0 is background, -1 is the mixed rnd set)")
-    parser.add_argument("--n-events-merge", type=int, default=100, help="number of events to merge")
-    parser.add_argument("--leading-pair-only", action="store_true", default=False, help="if we only want the leading 2 jets of each event")
-    args = parser.parse_args()
-
-    gdata = GraphDataset(root=args.dataset, bb=args.bb, n_proc=args.n_proc,
-                         n_events=args.n_events, n_particles=args.n_particles,
-                         n_events_merge=args.n_events_merge, leading_pair_only=args.leading_pair_only)

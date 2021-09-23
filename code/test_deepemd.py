@@ -6,9 +6,10 @@ import tqdm
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from loss_util import LossFunction
-from graph_data import GraphDataset
 from torch_geometric.data import DataLoader
+
+from util.loss_util import LossFunction
+from datagen.graph_data_gae import GraphDataset
 
 if __name__ == "__main__":
     import argparse

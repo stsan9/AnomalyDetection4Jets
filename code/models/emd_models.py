@@ -6,7 +6,7 @@ from torch_geometric.nn import DynamicEdgeConv, EdgeConv, global_mean_pool
 from torch_scatter import scatter_mean
 
 class DeeperDynamicEdgeNet(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=256, global_dim=2, output_dim=1, k=16, aggr='mean'):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=256, output_dim=1, k=16, aggr='mean'):
         super(DeeperDynamicEdgeNet, self).__init__()
         convnn = nn.Sequential(nn.Linear(2*(input_dim), big_dim),
                                nn.BatchNorm1d(big_dim),
@@ -34,8 +34,7 @@ class DeeperDynamicEdgeNet(nn.Module):
         )
                 
         self.batchnorm = nn.BatchNorm1d(input_dim)
-        self.batchnormglobal = nn.BatchNorm1d(global_dim)
-        self.outnn = nn.Sequential(nn.Linear(big_dim*4+input_dim+global_dim, bigger_dim),
+        self.outnn = nn.Sequential(nn.Linear(big_dim*4+input_dim, bigger_dim),
                                    nn.BatchNorm1d(bigger_dim),
                                    nn.ReLU(),
                                    nn.Linear(bigger_dim, bigger_dim),
@@ -56,15 +55,13 @@ class DeeperDynamicEdgeNet(nn.Module):
         x = torch.cat([x1, x2],dim=-1)
         x2 = self.conv3(x, data.batch)
         x = torch.cat([x1, x2],dim=-1)
-        u1 = self.batchnormglobal(data.u)
-        u2 = scatter_mean(x, data.batch, dim=0)
-        data.u = torch.cat([u1, u2],dim=-1)       
-        return self.outnn(data.u)
+        u = scatter_mean(x, data.batch, dim=0)
+        return self.outnn(u)
 
 class EmdNN(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
         super(EmdNN, self).__init__()
-        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
+        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, output_dim, k, aggr).to(device)
 
     def forward(self, data):
         # dual copies with different orderings
@@ -78,9 +75,9 @@ class EmdNN(nn.Module):
         return loss, emd_1, emd_2
 
 class EmdNNSpl(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
         super(EmdNNSpl, self).__init__()
-        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
+        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, output_dim, k, aggr).to(device)
 
     def forward(self, data):
         # dual copies with different orderings
@@ -95,9 +92,9 @@ class EmdNNSpl(nn.Module):
         return loss, emd_1, emd_2
 
 class EmdNNRel(nn.Module):
-    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, global_dim=2, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
+    def __init__(self, input_dim=4, big_dim=32, bigger_dim=128, output_dim=1, k=16, aggr='mean', device=torch.device('cuda:0')):
         super(EmdNNRel, self).__init__()
-        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, global_dim, output_dim, k, aggr).to(device)
+        self.EdgeNet = DeeperDynamicEdgeNet(input_dim, big_dim, bigger_dim, output_dim, k, aggr).to(device)
 
     def forward(self, data):
         # dual copies with different orderings
